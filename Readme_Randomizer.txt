@@ -2,8 +2,11 @@
 
 Hello. Here's a randomizer for The Mystery of Gensokyo (ゲンソウキョウの謎). Currently only works with Version 1.01e of the game.
 
-Future updates can be found here:
+Future updates and fixes can be found here:
 https://github.com/Ryason55/gnazo_randomizer
+
+And you can contact me here:
+https://twitter.com/ryason55
 
 
 -------Installation-------
