@@ -1,6 +1,6 @@
 ========== Mystery of Gensokyo Randomizer V3.0 ==========
 
-Hello. Here's a randomizer for The Mystery of Gensokyo (ƒQƒ“ƒ\ƒEƒLƒ‡ƒE‚Ì“ä). Currently only works with Version 1.01e of the game.
+Hello. Here's a randomizer for The Mystery of Gensokyo (ã‚²ãƒ³ã‚½ã‚¦ã‚­ãƒ§ã‚¦ã®è¬). Currently only works with Version 1.01e of the game.
 
 Future updates can be found here:
 https://github.com/Ryason55/gnazo_randomizer
