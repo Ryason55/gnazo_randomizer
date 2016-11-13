@@ -1,0 +1,53 @@
+------Abilities Bound to Characters------
+    Reimu: Melee Knockback UP, Spirit Maximum UP
+   Marisa: [None]
+    Alice: Doll Power UP (Affects Doll Explosions)
+    Cirno: Power while in Critical UP (Only on attacks with multipliers)
+  Meiling: Melee Power UP, Melee Knockback UP
+Patchouli: Magic Resistance UP
+   Sakuya: Chance of Reflecting Knives UP (Affects Sakuya's Shot Attack)
+  Remilia: [Takes constant damage from sunlight, Takes damage from running water] (Also Melee Power UP, which doesn't work)
+    Youmu: [Melee Power UP, which doesn't work]
+   Yuyuko: Recovers HP when defeating an enemy with melee or her own shot/charge attacks
+    Rumia: Visibility in the Dark UP
+Daiyousei: Jump Power UP, Power while in Critical UP (Only on attacks with multipliers)
+  Flandre: [Takes constant damage from sunlight, Takes damage from running water] (Also Melee Power UP, which doesn't work)
+   Yukari: Stage Advancement (Jump + Character Menu)
+    Keine: Headbutt Power UP
+     Tewi: Enemy Item Drop Rate UP, Jump Power UP
+   Reisen: Critical Hit Rate UP, Jump Power UP
+    Eirin: Enemy Item Drop Effect UP
+   Kaguya: Recovers HP while not active
+    Mokou: Recovers HP while active, Fire Power UP (Affects Particles from Mokou's Shot and Charge Attacks)
+   Nitori: Charge Attack Item Generation Rate UP
+      Aya: Melee Power UP, Can Stand on Clouds
+    Sanae: Spirit Maximum UP
+   Kanako: Overall Resistance UP
+   Suwako: Melee Power UP, Overall Resistance UP, Jump Power UP
+
+------Abilities Bound to Individual Attacks------
+    Reimu: [None]
+   Marisa: Shot Power UP, Charge Power UP
+    Alice: Doll Power UP (Charge Attack)
+    Cirno: Water Power UP
+  Meiling: [None]
+Patchouli: [None]
+   Sakuya: [None]
+  Remilia: Shot Power UP
+    Youmu: Charge Power UP
+   Yuyuko: [None]
+    Rumia: [None]
+Daiyousei: [None]
+  Flandre: Shot Power UP, Charge Power UP
+   Yukari: [None]
+    Keine: [None]
+     Tewi: [None]
+   Reisen: [None]
+    Eirin: [None]
+   Kaguya: [None]
+    Mokou: Fire Power UP (Affects originating shot from Mokou's Shot and Charge Attacks)
+   Nitori: Water Power UP (Only affects Shot Attack)
+      Aya: Wind Power UP
+    Sanae: Wind Power UP (Only affects Down Shot Attack)
+   Kanako: Shot Power UP
+   Suwako: [None]
