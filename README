@@ -64,7 +64,7 @@ V3.0
  -Added Background Randomization
  -Added the ability to toggle Door Randomization
  -Fixed a bug that was preventing a number of one-way doors from being randomized
- -The Spirit/RP of each player character is now changed depending on the the attacks they're randomized to have
+ -The Spirit/RP of each player character is now changed depending on the attacks they're randomized to have
  -It's slightly less likely that Kedamas will turn into Metal Kedamas with Enemy Randomization
  -The differently colored spirits now have different behaviours
  -Flying fairies now have a reduced chance of being assigned new attacks
