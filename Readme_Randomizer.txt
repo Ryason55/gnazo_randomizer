@@ -60,6 +60,11 @@ This function is sorta in beta at the moment. Here are some problems I'd like to
 
 
 -------Changelog-------
+V3.01
+-Potentially fixed the issue where doors very rarely don't randomize
+-Fixed a problem where you weren't able to delete save files due to the Solo Character handlers
+-The random platforms are now part of Background Randomization
+
 V3.0
  -Added Background Randomization
  -Added the ability to toggle Door Randomization
