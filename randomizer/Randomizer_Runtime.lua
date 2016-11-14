@@ -914,6 +914,8 @@ local SpawnedMystiaEX = false
 local MystiaEXLevel = 1
 local MystiaEXShooters = {}
 local EnemyIsMystia = {}
+
+local SaveFileIsValid = {}
 print("Randomizer Ready!")
 
 local Timer = createTimer(nil)
@@ -996,18 +998,37 @@ timer_onTimer(Timer, function()
       end
       if (CurrentMusic == 0) and (CurrentTitleScreenMenu == 1) then
         for s = 0,9,1 do
+          local SaveFileCurrentStage = readBytes(string.format("gnazo.exe+%X", 0x854110+(4*s) ),1)
           local ReimuUnlocked = readBytes(string.format("gnazo.exe+%X", 0x91C150+(0x19*s) ),1)
-          if not (ReimuUnlocked == 1) then
-            for i = 1,24,1 do
-              local CharacterUnlocked = readBytes(string.format("gnazo.exe+%X", 0x91C150+(0x19*s)+i ),1)
-              if (CharacterUnlocked == 1) then
-                writeBytes(string.format("gnazo.exe+%X", 0x91C150+(0x19*s) ),1)
-                --print("Save File "..s.." is Valid")
-                break
+          if SaveFileCurrentStage > 0 then
+            if not (ReimuUnlocked == 1) then
+              if not SaveFileIsValid[s+1] then
+                local SoloCharacterFile = false
+                for i = 1,24,1 do
+                  local CharacterUnlocked = readBytes(string.format("gnazo.exe+%X", 0x91C150+(0x19*s)+i ),1)
+                  if (CharacterUnlocked == 1) then
+                    if not SoloCharacterFile then
+                      SoloCharacterFile = true
+                    else
+                      SoloCharacterFile = false
+                      break
+                    end
+                  end
+                end
+                if SoloCharacterFile then
+                  SaveFileIsValid[s+1] = true
+                  writeBytes(string.format("gnazo.exe+%X", 0x91C150+(0x19*s) ),1)
+                end
               end
+            else
+              SaveFileIsValid[s+1] = true
             end
+          elseif ReimuUnlocked == 1 then
+            writeBytes(string.format("gnazo.exe+%X", 0x91C150+(0x19*s) ),0)
           end
         end
+      else
+        SaveFileIsValid = {}
       end
       if RandomizeEnemies then
         for i = 1,#HardcodedBulletsToUpdate,1 do
@@ -1099,6 +1120,9 @@ timer_onTimer(Timer, function()
           SpawnedMystiaEX = false
           MystiaEXShooters = {}
           EnemyIsMystia = {}
+          for i = 1,256,1 do
+            ObjectStatusTable[i] = {false,false,0,0,0}
+          end
           --local Stage = math.floor(DestinationRoom/10)
           --local RoomNumber = DestinationRoom - (Stage*10)
           --print("----- Stage " .. Stage .. ", Room ".. RoomNumber .." -----")
@@ -1155,7 +1179,7 @@ timer_onTimer(Timer, function()
                 end
               end
             end
-    
+            
             for i = 1,256,1 do
               local Offset = ObjectDataOffset * (i - 1)
               local ObjectState = readBytes(string.format("gnazo.exe+%X", ObjectStateAddress+Offset), 1)
@@ -1221,691 +1245,703 @@ timer_onTimer(Timer, function()
                 end
               end
             end
-            
-            if RandomizeEnemies then
-              local MystiaInRoom = false
-              local Difficulty = readBytes("gnazo.exe+85100A",1)
-              if not IsBossRoom[CurrentRoom] then --Certain bosses crash when their (presumed) familiars are randomized
-                if DestinationRoom == CurrentRoom then
-                  for i = 1,30,1 do --There generally aren't more than 30 enemies per room
-                    local Offset = (CharDataOffset*(i-1))
-                    local Character = readInteger(string.format("gnazo.exe+%X", EnemyCharacterAddress+Offset))
-                    local MovementPattern = readBytes(string.format("gnazo.exe+%X", EnemyMovementPatternAddress+Offset),1)
-                    local EnemyExists = readBytes(string.format("gnazo.exe+%X", EnemyExistsAddress+Offset),1)
-                    
-                    if IngameMenu == 0 then
-                      if EnemyIsMystia[i] == nil then
-                        if (Character == 14) and (EnemyExists > 0) then
-                          EnemyIsMystia[i] = true
-                          MystiaInRoom = true
-                        else
-                          EnemyIsMystia[i] = false
-                        end
-                      elseif EnemyIsMystia[i] then
-                        MystiaInRoom = true
-                        if EnemyExists == 0 then
-                          EnemyIsMystia[i] = false
-                          local CurrentLevel = readBytes("gnazo.exe+933CB6",1)
-                          if CurrentLevel <= 1 then
-                            writeBytes("gnazo.exe+933CB6",2)
+              
+            if (IngameMenu == 0) then
+              if RandomizeEnemies then
+                local MystiaInRoom = false
+                local Difficulty = readBytes("gnazo.exe+85100A",1)
+                if not IsBossRoom[CurrentRoom] then --Certain bosses crash when their (presumed) familiars are randomized
+                  if DestinationRoom == CurrentRoom then
+                    for i = 1,30,1 do --There generally aren't more than 30 enemies per room
+                      local Offset = (CharDataOffset*(i-1))
+                      local Character = readInteger(string.format("gnazo.exe+%X", EnemyCharacterAddress+Offset))
+                      local MovementPattern = readBytes(string.format("gnazo.exe+%X", EnemyMovementPatternAddress+Offset),1)
+                      local EnemyExists = readBytes(string.format("gnazo.exe+%X", EnemyExistsAddress+Offset),1)
+                      
+                      if IngameMenu == 0 then
+                        if EnemyIsMystia[i] == nil then
+                          if (Character == 14) and (EnemyExists > 0) then
+                            EnemyIsMystia[i] = true
+                            MystiaInRoom = true
                           else
-                            writeBytes("gnazo.exe+933CB6",math.min(55,CurrentLevel+1))
+                            EnemyIsMystia[i] = false
+                          end
+                        elseif EnemyIsMystia[i] then
+                          MystiaInRoom = true
+                          if EnemyExists == 0 then
+                            EnemyIsMystia[i] = false
+                            local CurrentLevel = readBytes("gnazo.exe+933CB6",1)
+                            if CurrentLevel <= 1 then
+                              writeBytes("gnazo.exe+933CB6",2)
+                            else
+                              writeBytes("gnazo.exe+933CB6",math.min(55,CurrentLevel+1))
+                            end
                           end
                         end
                       end
-                    end
-                    
-                    math.randomseed( math.ceil((RandomSeed+(DestinationRoom*3.14))+(i*3.14)) )
-                    local mrgr = math.random()
-                    
-                    if not (Character == 49) then --Invisible Shooter
-                      if not (EnemyExists == 0) then
-                        
-                        local ShotType = readInteger(string.format("gnazo.exe+%X", EnemyBulletAddress+Offset))
-                        if not (ShotType == nil) then
-                          local NewType = ShotType + 0
-                          local NewID = math.floor(ShotType/100)
-                          local MainShotChanged = false
+                      
+                      math.randomseed( math.ceil((RandomSeed+(DestinationRoom*3.14))+(i*3.14)) )
+                      local mrgr = math.random()
+                      
+                      if not (Character == 49) then --Invisible Shooter
+                        if not (EnemyExists == 0) then
                           
-                          local TotalFiringTime = 60
-                          local FireRate = 60
-                          local ConsecutiveFiringTime = 1
-                          local ConsecutiveFireRate = 1
-                          
-                          local AimType = 2
-                          local SpreadCount = 1
-                          local BulletCount = 1
-                          
-                          local SplitShotType = 0
-                          local SplitType = 0
-                          local SplitCount = 0
-                          local SplitSpeed = DifficultyMultipliers[Difficulty][2]
-                          local SplitLifetime = 0
-                          local SplitAngle = 0.1
-                          local SplitSpeedMod = 0
-                          local SplitAimDirection = 180
-                          local SplitWeight = 0
-                          
-                          local Weight = 0
-                          local Lifetime = 0
-                          local SpreadAngle = 0.1
-                          local AimDirection = 180
-                          local AimSpinSpeed = 0
-                          local Speed = DifficultyMultipliers[Difficulty][2]
-                          local SpeedMod = 0
-                          local TurnSpeed = 0
-                          
-                          local RefireDelay = 180
-                          local ExtraShotCount = 1
-                          local PairedBulletSpacing = 0
-                          
-                          --local AttackTypes = {}
-                          if EnemyCanShoot[Character] then
-                          
-                            local MaxBulletCount_Normal = DifficultyMultipliers[Difficulty][3]
-                            local MaxBulletCount_Large = DifficultyMultipliers[Difficulty][4]
-                            if ShotType > 0 then
-                              TotalFiringTime = readInteger(string.format("gnazo.exe+%X", EnemyShotTotalFiringTimeAddress+Offset))
-                              FireRate = readInteger(string.format("gnazo.exe+%X", EnemyShotFireRateAddress+Offset))
-                              ConsecutiveFiringTime = readInteger(string.format("gnazo.exe+%X", EnemyShotConsFiringTimeAddress+Offset))
-                              ConsecutiveFireRate = readInteger(string.format("gnazo.exe+%X", EnemyShotConsFireRateAddress+Offset))
-                              
-                              AimType = readBytes(string.format("gnazo.exe+%X", EnemyShotAimingAddress+Offset),1)
-                              SpreadCount = readBytes(string.format("gnazo.exe+%X", EnemyShotSpreadCountAddress+Offset),1)
-                              
-                              SplitShotType = readInteger(string.format("gnazo.exe+%X", EnemySecondaryBulletAddress+Offset))
-                              SplitType = readBytes(string.format("gnazo.exe+%X", EnemyShotSplitingAddress+Offset),1)
-                              SplitCount = readInteger(string.format("gnazo.exe+%X", EnemyShotSplitCountAddress+Offset))
-                              SplitSpeed = readFloat(string.format("gnazo.exe+%X", EnemyShotSplitVelocityAddress+Offset))
-                              SplitAngle = readFloat(string.format("gnazo.exe+%X", EnemyShotSplitConeAddress+Offset))
-                              SplitLifetime = readInteger(string.format("gnazo.exe+%X", EnemyShotSplitLifetimeAddress+Offset))
-                              
-                              SplitSpeedMod = readFloat(string.format("gnazo.exe+%X", EnemyShotSplitVelocityModAddress+Offset))
-                              SplitAimDirection = readFloat(string.format("gnazo.exe+%X", EnemyShotSplitAimingDirectionAddress+Offset))
-                              SplitWeight = readFloat(string.format("gnazo.exe+%X", EnemyShotSplitWeightAddress+Offset))
-                              
-                              Weight = readFloat(string.format("gnazo.exe+%X", EnemyShotWeightAddress+Offset))
-                              Lifetime = readInteger(string.format("gnazo.exe+%X", EnemyShotLifetimeAddress+Offset))
-                              SpreadAngle = readFloat(string.format("gnazo.exe+%X", EnemyShotSpreadAngleAddress+Offset))
-                              AimDirection = readFloat(string.format("gnazo.exe+%X", EnemyAimDirectionAddress+Offset))
-                              AimSpinSpeed = readFloat(string.format("gnazo.exe+%X", EnemyAimSpinSpeedAddress+Offset))
-                              Speed = readFloat(string.format("gnazo.exe+%X", EnemyShotVelocityAddress+Offset))
-                              SpeedMod = readFloat(string.format("gnazo.exe+%X", EnemyShotVelocityModAddress+Offset))
-                              TurnSpeed = readFloat(string.format("gnazo.exe+%X", EnemyShotTurningRateAddress+Offset))
-                              
-                              RefireDelay = readInteger(string.format("gnazo.exe+%X", EnemyRefireDelayAddress+Offset))
-                              ExtraShotCount = readFloat(string.format("gnazo.exe+%X", EnemyExtraShotCountAddress+Offset))
-                              PairedBulletSpacing = readFloat(string.format("gnazo.exe+%X", EnemyPairedBulletSpacingAddress+Offset))
-                              
-                              BulletCount = (math.floor(TotalFiringTime/FireRate)*math.floor(ConsecutiveFiringTime/ConsecutiveFireRate))*SpreadCount
-                              if ExtraShotCount > 1 then
-                                BulletCount = BulletCount * ExtraShotCount
-                              end
-                              if SplitType > 0 then
-                                BulletCount = (BulletCount * SplitCount)
-                              end
-                              if BulletCount > MaxBulletCount_Normal then
-                                MaxBulletCount_Normal = BulletCount + 0
-                                MaxBulletCount_Large = math.ceil(BulletCount/10)
-                              end
-                            end
+                          local ShotType = readInteger(string.format("gnazo.exe+%X", EnemyBulletAddress+Offset))
+                          if not (ShotType == nil) then
+                            local NewType = ShotType + 0
+                            local NewID = math.floor(ShotType/100)
+                            local MainShotChanged = false
                             
-                            local InteractsWithGround = readBytes(string.format("gnazo.exe+%X", EnemyInteractsWithGroundAddress+Offset),1) == 1
+                            local TotalFiringTime = 60
+                            local FireRate = 60
+                            local ConsecutiveFiringTime = 1
+                            local ConsecutiveFireRate = 1
                             
-                            if (ShotType > 0)
-                            or (InteractsWithGround and (math.random() < DifficultyMultipliers[Difficulty][1]*0.8))
-                            or ((not InteractsWithGround) and (math.random() < (DifficultyMultipliers[Difficulty][1]*0.4)))then
+                            local AimType = 2
+                            local SpreadCount = 1
+                            local BulletCount = 1
                             
-                              local ShotIndex = ShotTypeLookup[NewID]
-                              local OldShotIndex = ShotTypeLookup[NewID]
-                              if (DesiredBulletTypes[i] == nil) then
-                                local ShotTypeChanged = false
-                                if not ((NewID == 235) or (NewID == 347)) then --Bouncing Knives and Laser won't change type
-                                  for a = 1,5,1 do --Try 5 times
-                                    local NewIndex = math.random(1,#ShotTypes)
-                                    if ShotTypes[NewIndex][7] then --Cannot select player-specific shots or bouncing knives
-                                      local Color = math.random(1,ShotTypes[NewIndex][2]) - 1
-                                      if Character == 132 then --Minoriko
-                                        if (not (ShotTypes[NewIndex][4] or ShotTypes[NewIndex][5])) and ShotTypes[NewIndex][6] then
-                                          ShotIndex = NewIndex
-                                          NewID = ShotTypes[NewIndex][1]
-                                          NewType = (NewID*100)+Color
-                                          ShotTypeChanged = true
-                                          break
-                                        end
-                                      else
-                                        if (not ShotTypes[NewIndex][5]) or (((Character == 134) or (EnemyIsFairy[Character] and MovementPatternUsesRefireTime[MovementPattern])) and math.random() < 0.1) then --New Type is Dangerous (Only Doors and Fairies)
-                                          if (ShotTypes[NewIndex][3] and (Weight == 0)) --New Type should fly straight
-                                          or (ShotTypes[NewIndex][4] and (not (Weight == 0))) --New Type should have weight
-                                          or ((not ShotTypes[NewIndex][3]) and (not ShotTypes[NewIndex][4])) then --New Type can be either
+                            local SplitShotType = 0
+                            local SplitType = 0
+                            local SplitCount = 0
+                            local SplitSpeed = DifficultyMultipliers[Difficulty][2]
+                            local SplitLifetime = 0
+                            local SplitAngle = 0.1
+                            local SplitSpeedMod = 0
+                            local SplitAimDirection = 180
+                            local SplitWeight = 0
+                            
+                            local Weight = 0
+                            local Lifetime = 0
+                            local SpreadAngle = 0.1
+                            local AimDirection = 180
+                            local AimSpinSpeed = 0
+                            local Speed = DifficultyMultipliers[Difficulty][2]
+                            local SpeedMod = 0
+                            local TurnSpeed = 0
+                            
+                            local RefireDelay = 180
+                            local ExtraShotCount = 1
+                            local PairedBulletSpacing = 0
+                            
+                            --local AttackTypes = {}
+                            if EnemyCanShoot[Character] then
+                            
+                              local MaxBulletCount_Normal = DifficultyMultipliers[Difficulty][3]
+                              local MaxBulletCount_Large = DifficultyMultipliers[Difficulty][4]
+                              if ShotType > 0 then
+                                TotalFiringTime = readInteger(string.format("gnazo.exe+%X", EnemyShotTotalFiringTimeAddress+Offset))
+                                FireRate = readInteger(string.format("gnazo.exe+%X", EnemyShotFireRateAddress+Offset))
+                                ConsecutiveFiringTime = readInteger(string.format("gnazo.exe+%X", EnemyShotConsFiringTimeAddress+Offset))
+                                ConsecutiveFireRate = readInteger(string.format("gnazo.exe+%X", EnemyShotConsFireRateAddress+Offset))
+                                
+                                AimType = readBytes(string.format("gnazo.exe+%X", EnemyShotAimingAddress+Offset),1)
+                                SpreadCount = readBytes(string.format("gnazo.exe+%X", EnemyShotSpreadCountAddress+Offset),1)
+                                
+                                SplitShotType = readInteger(string.format("gnazo.exe+%X", EnemySecondaryBulletAddress+Offset))
+                                SplitType = readBytes(string.format("gnazo.exe+%X", EnemyShotSplitingAddress+Offset),1)
+                                SplitCount = readInteger(string.format("gnazo.exe+%X", EnemyShotSplitCountAddress+Offset))
+                                SplitSpeed = readFloat(string.format("gnazo.exe+%X", EnemyShotSplitVelocityAddress+Offset))
+                                SplitAngle = readFloat(string.format("gnazo.exe+%X", EnemyShotSplitConeAddress+Offset))
+                                SplitLifetime = readInteger(string.format("gnazo.exe+%X", EnemyShotSplitLifetimeAddress+Offset))
+                                
+                                SplitSpeedMod = readFloat(string.format("gnazo.exe+%X", EnemyShotSplitVelocityModAddress+Offset))
+                                SplitAimDirection = readFloat(string.format("gnazo.exe+%X", EnemyShotSplitAimingDirectionAddress+Offset))
+                                SplitWeight = readFloat(string.format("gnazo.exe+%X", EnemyShotSplitWeightAddress+Offset))
+                                
+                                Weight = readFloat(string.format("gnazo.exe+%X", EnemyShotWeightAddress+Offset))
+                                Lifetime = readInteger(string.format("gnazo.exe+%X", EnemyShotLifetimeAddress+Offset))
+                                SpreadAngle = readFloat(string.format("gnazo.exe+%X", EnemyShotSpreadAngleAddress+Offset))
+                                AimDirection = readFloat(string.format("gnazo.exe+%X", EnemyAimDirectionAddress+Offset))
+                                AimSpinSpeed = readFloat(string.format("gnazo.exe+%X", EnemyAimSpinSpeedAddress+Offset))
+                                Speed = readFloat(string.format("gnazo.exe+%X", EnemyShotVelocityAddress+Offset))
+                                SpeedMod = readFloat(string.format("gnazo.exe+%X", EnemyShotVelocityModAddress+Offset))
+                                TurnSpeed = readFloat(string.format("gnazo.exe+%X", EnemyShotTurningRateAddress+Offset))
+                                
+                                RefireDelay = readInteger(string.format("gnazo.exe+%X", EnemyRefireDelayAddress+Offset))
+                                ExtraShotCount = readFloat(string.format("gnazo.exe+%X", EnemyExtraShotCountAddress+Offset))
+                                PairedBulletSpacing = readFloat(string.format("gnazo.exe+%X", EnemyPairedBulletSpacingAddress+Offset))
+                                
+                                BulletCount = (math.floor(TotalFiringTime/FireRate)*math.floor(ConsecutiveFiringTime/ConsecutiveFireRate))*SpreadCount
+                                if ExtraShotCount > 1 then
+                                  BulletCount = BulletCount * ExtraShotCount
+                                end
+                                if SplitType > 0 then
+                                  BulletCount = (BulletCount * SplitCount)
+                                end
+                                if BulletCount > MaxBulletCount_Normal then
+                                  MaxBulletCount_Normal = BulletCount + 0
+                                  MaxBulletCount_Large = math.ceil(BulletCount/10)
+                                end
+                              end
+                              
+                              local InteractsWithGround = readBytes(string.format("gnazo.exe+%X", EnemyInteractsWithGroundAddress+Offset),1) == 1
+                              
+                              if (ShotType > 0)
+                              or (InteractsWithGround and (math.random() < DifficultyMultipliers[Difficulty][1]*0.8))
+                              or ((not InteractsWithGround) and (math.random() < (DifficultyMultipliers[Difficulty][1]*0.4)))then
+                              
+                                local ShotIndex = ShotTypeLookup[NewID]
+                                local OldShotIndex = ShotTypeLookup[NewID]
+                                if (DesiredBulletTypes[i] == nil) then
+                                  local ShotTypeChanged = false
+                                  if not ((NewID == 235) or (NewID == 347)) then --Bouncing Knives and Laser won't change type
+                                    for a = 1,5,1 do --Try 5 times
+                                      local NewIndex = math.random(1,#ShotTypes)
+                                      if ShotTypes[NewIndex][7] then --Cannot select player-specific shots or bouncing knives
+                                        local Color = math.random(1,ShotTypes[NewIndex][2]) - 1
+                                        if Character == 132 then --Minoriko
+                                          if (not (ShotTypes[NewIndex][4] or ShotTypes[NewIndex][5])) and ShotTypes[NewIndex][6] then
                                             ShotIndex = NewIndex
                                             NewID = ShotTypes[NewIndex][1]
                                             NewType = (NewID*100)+Color
                                             ShotTypeChanged = true
                                             break
                                           end
+                                        else
+                                          if (not ShotTypes[NewIndex][5]) or (((Character == 134) or (EnemyIsFairy[Character] and MovementPatternUsesRefireTime[MovementPattern])) and math.random() < 0.1) then --New Type is Dangerous (Only Doors and Fairies)
+                                            if (ShotTypes[NewIndex][3] and (Weight == 0)) --New Type should fly straight
+                                            or (ShotTypes[NewIndex][4] and (not (Weight == 0))) --New Type should have weight
+                                            or ((not ShotTypes[NewIndex][3]) and (not ShotTypes[NewIndex][4])) then --New Type can be either
+                                              ShotIndex = NewIndex
+                                              NewID = ShotTypes[NewIndex][1]
+                                              NewType = (NewID*100)+Color
+                                              ShotTypeChanged = true
+                                              break
+                                            end
+                                          end
                                         end
                                       end
                                     end
                                   end
-                                end
 
-                                if (not ShotTypeChanged) and (not (ShotIndex == nil)) then
-                                  local Color = math.random(1,ShotTypes[ShotIndex][2]) - 1
-                                  NewType = (NewID*100)+Color
-                                end
+                                  if (not ShotTypeChanged) and (not (ShotIndex == nil)) then
+                                    local Color = math.random(1,ShotTypes[ShotIndex][2]) - 1
+                                    NewType = (NewID*100)+Color
+                                  end
 
-                                DesiredBulletTypes[i] = NewType
-                                --print("Randomizing Enemy "..i.."'s Projectile to "..NewType.." (Original: "..ShotType..")")
-                              elseif (DesiredBulletTypes[i] == ShotType) then --Don't randomize bullet types that are already randomized
-                                ShotIndex = nil
-                              else
-                                NewType = DesiredBulletTypes[i]
-                                NewID = math.floor(NewType/100)
-                                ShotIndex = ShotTypeLookup[NewID]
-                                --print("Correcting Enemy "..i.."'s Projectile to "..NewType.." (Original: "..ShotType..")")
-                              end
-                              
-                              local UsingSpecialCharacter = false
-                              local EnsureMultipleShots = false
-                              if not (CharacterSpriteOffset == nil) then
-                                local CurrentSprite = readInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset))
-                                if not (DesiredSprite[i] == CurrentSprite) then
-                                  math.randomseed( (RandomSeed+DestinationRoom)+(i*3) )
-                                  local mrgr = math.random()
-                                  if EnemyIsFairy[Character] then
-                                    local SpriteHandled = false
-                                    if (not (ShotIndex == nil)) and (not MovementPatternCannotFire[MovementPattern]) and (math.random() < 0.1) then
-                                      if InteractsWithGround then
-                                        if not (ShotTypes[ShotIndex][8] == nil) then
-                                          local ReplacementIndex = 0
-                                          if #ShotTypes[ShotIndex][8] == 1 then
-                                            ReplacementIndex = ShotTypes[ShotIndex][8][1]
-                                          else
-                                            local newindex = math.random(1,#ShotTypes[ShotIndex][8])
-                                            ReplacementIndex = ShotTypes[ShotIndex][8][newindex]
-                                          end
-                                          SpriteHandled = true
-                                          local NewSprite = CharacterSpriteOffset+PlayerSprites[ReplacementIndex][1]
-                                          writeInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset), NewSprite)
-                                          writeInteger(string.format("gnazo.exe+%X", EnemySpriteXSizeAddress+Offset), 128)
-                                          writeInteger(string.format("gnazo.exe+%X", EnemySpriteYSizeAddress+Offset), 128)
-                                          for a = 1,8,1 do
-                                            writeFloat(string.format("gnazo.exe+%X", EnemyAffinityAddressStart+Offset+(4*(a-1))), PlayerSprites[ReplacementIndex][a+1])
-                                          end
-                                          writeInteger(string.format("gnazo.exe+%X", EnemyContactDamageAddress+Offset), PlayerSprites[ReplacementIndex][10])
-                                          local OldHP = readInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset))
-                                          local NewHP = 400 + (math.random(1,4)*100)
-                                          if NewHP > OldHP then
-                                            writeInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset), NewHP)
-                                          end
-                                          if ReplacementIndex == 4 then --Meiling can block
-                                            writeBytes(string.format("gnazo.exe+%X", EnemyMeleeGuardSettingAddress+Offset), 63)
-                                          else
-                                            writeBytes(string.format("gnazo.exe+%X", EnemyMeleeGuardSettingAddress+Offset), 0)
-                                          end
-                                          local XSpeed = readFloat(string.format("gnazo.exe+%X", EnemyXSpeedAddress+Offset))
-                                          if math.abs(XSpeed) > 2 then
-                                            if XSpeed > 0 then
-                                              writeFloat(string.format("gnazo.exe+%X", EnemyXSpeedAddress+Offset), 2)
+                                  DesiredBulletTypes[i] = NewType
+                                  --print("Randomizing Enemy "..i.."'s Projectile to "..NewType.." (Original: "..ShotType..")")
+                                elseif (DesiredBulletTypes[i] == ShotType) then --Don't randomize bullet types that are already randomized
+                                  ShotIndex = nil
+                                else
+                                  NewType = DesiredBulletTypes[i]
+                                  NewID = math.floor(NewType/100)
+                                  ShotIndex = ShotTypeLookup[NewID]
+                                  --print("Correcting Enemy "..i.."'s Projectile to "..NewType.." (Original: "..ShotType..")")
+                                end
+                                
+                                local UsingSpecialCharacter = false
+                                local EnsureMultipleShots = false
+                                if not (CharacterSpriteOffset == nil) then
+                                  local CurrentSprite = readInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset))
+                                  if not (DesiredSprite[i] == CurrentSprite) then
+                                    math.randomseed( (RandomSeed+DestinationRoom)+(i*3) )
+                                    local mrgr = math.random()
+                                    if EnemyIsFairy[Character] then
+                                      local SpriteHandled = false
+                                      if (not (ShotIndex == nil)) and (not MovementPatternCannotFire[MovementPattern]) and (math.random() < 0.1) then
+                                        if InteractsWithGround then
+                                          if not (ShotTypes[ShotIndex][8] == nil) then
+                                            local ReplacementIndex = 0
+                                            if #ShotTypes[ShotIndex][8] == 1 then
+                                              ReplacementIndex = ShotTypes[ShotIndex][8][1]
                                             else
-                                              writeFloat(string.format("gnazo.exe+%X", EnemyXSpeedAddress+Offset), -2)
+                                              local newindex = math.random(1,#ShotTypes[ShotIndex][8])
+                                              ReplacementIndex = ShotTypes[ShotIndex][8][newindex]
                                             end
-                                          end
-                                          UsingSpecialCharacter = true
-                                          if EnemyIsFairy[Character] then
-                                            EnsureMultipleShots = true
-                                          end
-                                          DesiredSprite[i] = NewSprite
-                                        end
-                                      end
-                                    end
-                                    if not SpriteHandled then
-                                      local CurrentSpriteIndex = 0
-                                      for s = 1,17,1 do
-                                        if CharacterSpriteOffset+FairySprites[s][1] == CurrentSprite then
-                                          CurrentSpriteIndex = s
-                                          break
-                                        end
-                                      end
-                                      if (not (CurrentSpriteIndex == nil)) and (not (FairySprites[CurrentSpriteIndex] == nil)) then
-                                        local NewSpriteIndex = 1
-                                        if (CurrentSpriteIndex >= 10) or ((not (ShotIndex == nil)) and ShotTypes[ShotIndex][5]) then
-                                          NewSpriteIndex = math.random(10,17)
-                                          if (CurrentSpriteIndex < 10) and (math.random() < 0.2) then
-                                            writeBytes(string.format("gnazo.exe+%X", EnemyMeleeGuardSettingAddress+Offset), 63)
-                                          end
-                                        else
-                                          if readBytes(string.format("gnazo.exe+%X", EnemyInteractsWithGroundAddress+Offset),1) == 1 then
-                                            NewSpriteIndex = math.random(1,9)
-                                          else
-                                            NewSpriteIndex = math.random(1,8)
-                                          end
-                                        end
-                                        if not (FairySprites[NewSpriteIndex] == nil) then
-                                          local NewSprite = CharacterSpriteOffset+FairySprites[NewSpriteIndex][1]
-                                          writeInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset), NewSprite)
-                                          if NewSpriteIndex == 9 then
+                                            SpriteHandled = true
+                                            local NewSprite = CharacterSpriteOffset+PlayerSprites[ReplacementIndex][1]
+                                            writeInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset), NewSprite)
                                             writeInteger(string.format("gnazo.exe+%X", EnemySpriteXSizeAddress+Offset), 128)
                                             writeInteger(string.format("gnazo.exe+%X", EnemySpriteYSizeAddress+Offset), 128)
-                                          else
-                                            writeInteger(string.format("gnazo.exe+%X", EnemySpriteXSizeAddress+Offset), 64)
-                                            writeInteger(string.format("gnazo.exe+%X", EnemySpriteYSizeAddress+Offset), 64)
-                                          end
-                                          local OldHP = readInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset))
-                                          if OldHP < 1000 then
-                                            local NewHP = math.min( 1000,math.max( 100,math.ceil((OldHP / FairySprites[CurrentSpriteIndex][2]) * FairySprites[NewSpriteIndex][2]) ) )
-                                            if (OldHP > 200) and (NewHP < 200) then
-                                              NewHP = 200
+                                            for a = 1,8,1 do
+                                              writeFloat(string.format("gnazo.exe+%X", EnemyAffinityAddressStart+Offset+(4*(a-1))), PlayerSprites[ReplacementIndex][a+1])
                                             end
-                                            writeInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset), NewHP)
+                                            writeInteger(string.format("gnazo.exe+%X", EnemyContactDamageAddress+Offset), PlayerSprites[ReplacementIndex][10])
+                                            local OldHP = readInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset))
+                                            local NewHP = 400 + (math.random(1,4)*100)
+                                            if NewHP > OldHP then
+                                              writeInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset), NewHP)
+                                            end
+                                            if ReplacementIndex == 4 then --Meiling can block
+                                              writeBytes(string.format("gnazo.exe+%X", EnemyMeleeGuardSettingAddress+Offset), 63)
+                                            else
+                                              writeBytes(string.format("gnazo.exe+%X", EnemyMeleeGuardSettingAddress+Offset), 0)
+                                            end
+                                            local XSpeed = readFloat(string.format("gnazo.exe+%X", EnemyXSpeedAddress+Offset))
+                                            if math.abs(XSpeed) > 2 then
+                                              if XSpeed > 0 then
+                                                writeFloat(string.format("gnazo.exe+%X", EnemyXSpeedAddress+Offset), 2)
+                                              else
+                                                writeFloat(string.format("gnazo.exe+%X", EnemyXSpeedAddress+Offset), -2)
+                                              end
+                                            end
+                                            UsingSpecialCharacter = true
+                                            if EnemyIsFairy[Character] then
+                                              EnsureMultipleShots = true
+                                            end
+                                            DesiredSprite[i] = NewSprite
                                           end
-                                          writeInteger(string.format("gnazo.exe+%X", EnemyCharacterAddress+Offset),FairySprites[NewSpriteIndex][3])
-                                          if (FairySprites[NewSpriteIndex][3] == 5) then --Maid Fairies don't have frames for blocking
-                                            writeBytes(string.format("gnazo.exe+%X", EnemyMeleeGuardSettingAddress+Offset), 0)
-                                          end
-                                          DesiredSprite[i] = NewSprite
                                         end
                                       end
-                                    end
-                                  elseif (Character == 134) then --Shooting Door
-                                    local NewSpriteIndex = math.random(1,4)
-                                    local NewSprite = readInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset))
-                                    if NewSpriteIndex > 1 then
-                                      NewSprite = DoorSpriteBaseOffset+(32*(NewSpriteIndex-1))
-                                      writeInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset),NewSprite)
-                                    end
-                                    DesiredSprite[i] = NewSprite
-                                    UsingSpecialCharacter = true
-                                  end
-                                else
-                                  for s = 0,#PlayerSprites,1 do
-                                    if CharacterSpriteOffset+PlayerSprites[s][1] == CurrentSprite then
-                                      UsingSpecialCharacter = true
-                                      if s <= 24 then
-                                        EnsureMultipleShots = true
+                                      if not SpriteHandled then
+                                        local CurrentSpriteIndex = 0
+                                        for s = 1,17,1 do
+                                          if CharacterSpriteOffset+FairySprites[s][1] == CurrentSprite then
+                                            CurrentSpriteIndex = s
+                                            break
+                                          end
+                                        end
+                                        if (not (CurrentSpriteIndex == nil)) and (not (FairySprites[CurrentSpriteIndex] == nil)) then
+                                          local NewSpriteIndex = 1
+                                          if (CurrentSpriteIndex >= 10) or ((not (ShotIndex == nil)) and ShotTypes[ShotIndex][5]) then
+                                            NewSpriteIndex = math.random(10,17)
+                                            if (CurrentSpriteIndex < 10) and (math.random() < 0.2) then
+                                              writeBytes(string.format("gnazo.exe+%X", EnemyMeleeGuardSettingAddress+Offset), 63)
+                                            end
+                                          else
+                                            if readBytes(string.format("gnazo.exe+%X", EnemyInteractsWithGroundAddress+Offset),1) == 1 then
+                                              NewSpriteIndex = math.random(1,9)
+                                            else
+                                              NewSpriteIndex = math.random(1,8)
+                                            end
+                                          end
+                                          if not (FairySprites[NewSpriteIndex] == nil) then
+                                            local NewSprite = CharacterSpriteOffset+FairySprites[NewSpriteIndex][1]
+                                            writeInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset), NewSprite)
+                                            if NewSpriteIndex == 9 then
+                                              writeInteger(string.format("gnazo.exe+%X", EnemySpriteXSizeAddress+Offset), 128)
+                                              writeInteger(string.format("gnazo.exe+%X", EnemySpriteYSizeAddress+Offset), 128)
+                                            else
+                                              writeInteger(string.format("gnazo.exe+%X", EnemySpriteXSizeAddress+Offset), 64)
+                                              writeInteger(string.format("gnazo.exe+%X", EnemySpriteYSizeAddress+Offset), 64)
+                                            end
+                                            local OldHP = readInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset))
+                                            if OldHP < 1000 then
+                                              local NewHP = math.min( 1000,math.max( 100,math.ceil((OldHP / FairySprites[CurrentSpriteIndex][2]) * FairySprites[NewSpriteIndex][2]) ) )
+                                              if (OldHP > 200) and (NewHP < 200) then
+                                                NewHP = 200
+                                              end
+                                              writeInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset), NewHP)
+                                            end
+                                            writeInteger(string.format("gnazo.exe+%X", EnemyCharacterAddress+Offset),FairySprites[NewSpriteIndex][3])
+                                            if (FairySprites[NewSpriteIndex][3] == 5) then --Maid Fairies don't have frames for blocking
+                                              writeBytes(string.format("gnazo.exe+%X", EnemyMeleeGuardSettingAddress+Offset), 0)
+                                            end
+                                            DesiredSprite[i] = NewSprite
+                                          end
+                                        end
                                       end
-                                      break
+                                    elseif (Character == 134) then --Shooting Door
+                                      local NewSpriteIndex = math.random(1,4)
+                                      local NewSprite = readInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset))
+                                      if NewSpriteIndex > 1 then
+                                        NewSprite = DoorSpriteBaseOffset+(32*(NewSpriteIndex-1))
+                                        writeInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset),NewSprite)
+                                      end
+                                      DesiredSprite[i] = NewSprite
+                                      UsingSpecialCharacter = true
+                                    end
+                                  else
+                                    for s = 0,#PlayerSprites,1 do
+                                      if CharacterSpriteOffset+PlayerSprites[s][1] == CurrentSprite then
+                                        UsingSpecialCharacter = true
+                                        if s <= 24 then
+                                          EnsureMultipleShots = true
+                                        end
+                                        break
+                                      end
                                     end
                                   end
                                 end
-                              end
-                              
-                              if not (ShotIndex == nil) then
-                                --print("Enemy "..i.." ("..Character.."): Using Bullet Index "..NewID)
                                 
-                                math.randomseed( math.ceil((RandomSeed+(DestinationRoom*5.55))+(i*5.55)) )
-                                local mrgr = math.random()
-                                if ShotTypes[ShotIndex][5] then --Dangerous Bullets (Bullets that spawn many children. Also Lasers.)
-                                  if NewID == 256 then --Keine Charge
-                                    if UsingSpecialCharacter then 
-                                      SpreadCount = math.ceil(math.random(4,8)*DifficultyMultipliers[Difficulty][1]) + 4
-                                    else
-                                      SpreadCount = math.max(2,math.ceil(math.random(6,10)*DifficultyMultipliers[Difficulty][1]))
-                                    end
-                                    SpreadAngle = 360
-                                  elseif NewID == 300 then --Suwako Rings
-                                    SpreadCount = 1
-                                    SpreadAngle = 0.1
-                                  elseif NewID == 255 then --Keine Shot
-                                    if UsingSpecialCharacter then
-                                      SpreadCount = math.random( 1,math.ceil(MaxBulletCount_Large*2) )
-                                    else
-                                      SpreadCount = math.random( 1,math.ceil(MaxBulletCount_Large*1.5) )
-                                    end
-                                    if SpreadCount == 1 then
+                                if not (ShotIndex == nil) then
+                                  --print("Enemy "..i.." ("..Character.."): Using Bullet Index "..NewID)
+                                  
+                                  math.randomseed( math.ceil((RandomSeed+(DestinationRoom*5.55))+(i*5.55)) )
+                                  local mrgr = math.random()
+                                  if ShotTypes[ShotIndex][5] then --Dangerous Bullets (Bullets that spawn many children. Also Lasers.)
+                                    if NewID == 256 then --Keine Charge
+                                      if UsingSpecialCharacter then 
+                                        SpreadCount = math.ceil(math.random(4,8)*DifficultyMultipliers[Difficulty][1]) + 4
+                                      else
+                                        SpreadCount = math.max(2,math.ceil(math.random(6,10)*DifficultyMultipliers[Difficulty][1]))
+                                      end
+                                      SpreadAngle = 360
+                                    elseif NewID == 300 then --Suwako Rings
+                                      SpreadCount = 1
                                       SpreadAngle = 0.1
+                                    elseif NewID == 255 then --Keine Shot
+                                      if UsingSpecialCharacter then
+                                        SpreadCount = math.random( 1,math.ceil(MaxBulletCount_Large*2) )
+                                      else
+                                        SpreadCount = math.random( 1,math.ceil(MaxBulletCount_Large*1.5) )
+                                      end
+                                      if SpreadCount == 1 then
+                                        SpreadAngle = 0.1
+                                      else
+                                        SpreadAngle = math.min(360,(30/DifficultyMultipliers[Difficulty][1])*(SpreadCount-1))
+                                      end
                                     else
-                                      SpreadAngle = math.min(360,(30/DifficultyMultipliers[Difficulty][1])*(SpreadCount-1))
+                                      if UsingSpecialCharacter then
+                                        SpreadCount = math.random( 1,math.ceil(MaxBulletCount_Large*1.5) )
+                                      else
+                                        SpreadCount = math.random(1,MaxBulletCount_Large)
+                                      end
+                                      if SpreadCount == 1 then
+                                        SpreadAngle = 0.1
+                                      else
+                                        SpreadAngle = math.min(360,(30/DifficultyMultipliers[Difficulty][1])*(SpreadCount-1))
+                                      end
                                     end
-                                  else
-                                    if UsingSpecialCharacter then
-                                      SpreadCount = math.random( 1,math.ceil(MaxBulletCount_Large*1.5) )
-                                    else
-                                      SpreadCount = math.random(1,MaxBulletCount_Large)
-                                    end
-                                    if SpreadCount == 1 then
-                                      SpreadAngle = 0.1
-                                    else
-                                      SpreadAngle = math.min(360,(30/DifficultyMultipliers[Difficulty][1])*(SpreadCount-1))
-                                    end
-                                  end
-                                  if math.random() < 0.5 then
-                                    AimType = 2
-                                  else
-                                    AimType = 4
-                                  end
-                                  ExtraShotCount = 0
-                                  PairedBulletSpacing = 0
-                                  Weight = 0
-                                  AimDirection = 180
-                                  RefireDelay = 120 + (math.random(1,4) * 30)
-                                  ConsecutiveFiringTime = 1
-                                  ConsecutiveFireRate = 1
-                                  TotalFiringTime = 1
-                                  FireRate = 1
-                                  SplitType = 0
-                                  if NewID == 227 then
-                                    Speed = DifficultyMultipliers[Difficulty][2] * 0.75
-                                  else
-                                    Speed = DifficultyMultipliers[Difficulty][2] * 1.5
-                                  end
-                                  if NewID == 300 then --Suwako Rings (They require a high lifetime in order to bounce)
-                                    Lifetime = 10000
-                                  end
-                                  if NewID == 256 then --Keine Charge
-                                    TurnSpeed = (math.random()*4) + 2
                                     if math.random() < 0.5 then
-                                      TurnSpeed = -TurnSpeed
+                                      AimType = 2
+                                    else
+                                      AimType = 4
                                     end
-                                    Lifetime = 120
-                                    SpeedMod = math.random()/10
-                                  else
-                                    TurnSpeed = 0
-                                    SpeedMod = 0
-                                  end
-                                  
-                                  if NewID == 347 then --Laser (Enemy shouldn't move while using it)
-                                    writeFloat(string.format("gnazo.exe+%X", EnemyXSpeedAddress+Offset), 0)
-                                  end
-                                else --Regular Bullets
-                                  local OriginalSpreadCount = SpreadCount + 0
-                                  if Speed <= 0 then
-                                    Speed = DifficultyMultipliers[Difficulty][2]
-                                  end
-                                  Speed = math.min(6, math.max(2,Speed * (1+((math.random()/2.5)-0.2))) )
-                                  if Speed < 3 then
-                                    SpeedMod = math.max(0,SpeedMod)
-                                  end
-                                  
-                                  if ShotType == 0 then
-                                    if ShotTypes[ShotIndex][3] then --If shot should fly straight
-                                      Weight = 0
-                                      AimType = math.random(1,4)
-                                      Lifetime = 0
-                                      if (AimType == 1) or (AimType == 3) then
-                                        AimDirection = 180
-                                        AimSpinSpeed = math.random(5,15)
+                                    ExtraShotCount = 0
+                                    PairedBulletSpacing = 0
+                                    Weight = 0
+                                    AimDirection = 180
+                                    RefireDelay = 120 + (math.random(1,4) * 30)
+                                    ConsecutiveFiringTime = 1
+                                    ConsecutiveFireRate = 1
+                                    TotalFiringTime = 1
+                                    FireRate = 1
+                                    SplitType = 0
+                                    if NewID == 227 then
+                                      Speed = DifficultyMultipliers[Difficulty][2] * 0.75
+                                    else
+                                      Speed = DifficultyMultipliers[Difficulty][2] * 1.5
+                                    end
+                                    if NewID == 300 then --Suwako Rings (They require a high lifetime in order to bounce)
+                                      Lifetime = 10000
+                                    end
+                                    if NewID == 256 then --Keine Charge
+                                      TurnSpeed = (math.random()*4) + 2
+                                      if math.random() < 0.5 then
+                                        TurnSpeed = -TurnSpeed
                                       end
-                                    elseif ShotTypes[ShotIndex][4] then --If shot should be affected by gravity
-                                      SpreadAngle = 30
-                                      AimDirection = math.random(225,270)
-                                      Weight = (math.random()*0.2)+0.1
-                                      AimType = 3 --general aiming direction
-                                      Lifetime = math.random(60,90)
-                                      Speed = math.max(6,Speed)
-                                      SpreadCount = math.random(2,5)
+                                      Lifetime = 120
+                                      SpeedMod = math.random()/10
+                                    else
+                                      TurnSpeed = 0
+                                      SpeedMod = 0
                                     end
-                                  end
-                                  
-                                  if (not ShotTypes[ShotIndex][4]) and (Weight == 0) then
-                                    if (not (NewID == 235)) then --Exclude Bouncing Knives
-                                      if AimType <= 4 then
-                                        if ShotTypes[ShotIndex][6] and (math.random() < 0.25) then
-                                          AimType = AimType + 30 --Bullets are paired up
-                                          ExtraShotCount = math.random(2,3)
-                                          PairedBulletSpacing = 16
+                                    
+                                    if NewID == 347 then --Laser (Enemy shouldn't move while using it)
+                                      writeFloat(string.format("gnazo.exe+%X", EnemyXSpeedAddress+Offset), 0)
+                                    end
+                                  else --Regular Bullets
+                                    local OriginalSpreadCount = SpreadCount + 0
+                                    if Speed <= 0 then
+                                      Speed = DifficultyMultipliers[Difficulty][2]
+                                    end
+                                    Speed = math.min(6, math.max(2,Speed * (1+((math.random()/2.5)-0.2))) )
+                                    if Speed < 3 then
+                                      SpeedMod = math.max(0,SpeedMod)
+                                    end
+                                    
+                                    if ShotType == 0 then
+                                      if ShotTypes[ShotIndex][3] then --If shot should fly straight
+                                        Weight = 0
+                                        AimType = math.random(1,4)
+                                        Lifetime = 0
+                                        if (AimType == 1) or (AimType == 3) then
+                                          AimDirection = 180
+                                          AimSpinSpeed = math.random(5,15)
                                         end
-                                      elseif AimType >= 11 and AimType <= 14 then
-                                        ExtraShotCount = math.random(3,5)
-                                      elseif AimType >= 31 and AimType <= 34 then
-                                        if ShotTypes[ShotIndex][6] then
-                                          ExtraShotCount = math.random(2,3)
-                                        else
-                                          AimType = AimType - 30
-                                          ExtraShotCount = 0
-                                        end
+                                      elseif ShotTypes[ShotIndex][4] then --If shot should be affected by gravity
+                                        SpreadAngle = 30
+                                        AimDirection = math.random(225,270)
+                                        Weight = (math.random()*0.2)+0.1
+                                        AimType = 3 --general aiming direction
+                                        Lifetime = math.random(60,90)
+                                        Speed = math.max(6,Speed)
+                                        SpreadCount = math.random(2,5)
                                       end
                                     end
-                                    if AimSpinSpeed == 0 then
-                                      local MaxCircularSpreadCount = 4+math.ceil(8*DifficultyMultipliers[Difficulty][1]) --For large bullets
-                                      if (SpreadCount == 1) and (FiringTime == TotalFiringTime) and (math.random() < 0.2) then
-                                        local PlusMinus = 1
-                                        if math.random() < 0.5 then
-                                          PlusMinus = -1
-                                        end
-                                        AimSpinSpeed = (6 * math.random(1,3)) * PlusMinus
-                                        EnsureMultipleShots = true
-                                      elseif (SpreadAngle < 360) and (Weight == 0) and (not (NewID == 235)) and (math.random() < 0.1) then
-                                        SpreadAngle = 360
-                                        SpreadCount = math.random(0,8*DifficultyMultipliers[Difficulty][1]) + 8
-                                        if ((NewID == 256) or (math.random() < 0.2)) then
-                                          TurnSpeed = (math.random()*4) + 2
-                                          if math.random() < 0.5 then
-                                            TurnSpeed = -TurnSpeed
+                                    
+                                    if (not ShotTypes[ShotIndex][4]) and (Weight == 0) then
+                                      if (not (NewID == 235)) then --Exclude Bouncing Knives
+                                        if AimType <= 4 then
+                                          if ShotTypes[ShotIndex][6] and (math.random() < 0.25) then
+                                            AimType = AimType + 30 --Bullets are paired up
+                                            ExtraShotCount = math.random(2,3)
+                                            PairedBulletSpacing = 16
                                           end
-                                          if (NewID == 256) then
-                                            Lifetime = 120
-                                            SpeedMod = math.max(0,SpeedMod)
-                                          elseif Lifetime == 0 then
-                                            Lifetime = math.random(30,120)
-                                          end
-                                          if ShotTypes[ShotIndex][3] then
-                                            SpeedMod = math.max(0,SpeedMod)
-                                          end
-                                        end
-                                      elseif (SpreadAngle >= 360) and (SpreadCount > MaxCircularSpreadCount) then
-                                        if (not ShotTypes[ShotIndex][6]) and ShotTypes[OldShotIndex][6] then
-                                          SpreadCount = math.max(MaxCircularSpreadCount,math.ceil(SpreadCount/2))
-                                        end
-                                      elseif (SpreadCount < 8) then
-                                        local lowervalue = 1
-                                        local uppervalue = 1
-                                        if (SpreadCount > 1) and (math.random() < 0.5) then
-                                          lowervalue = math.ceil(1/DifficultyMultipliers[Difficulty][1])
-                                        end
-                                        if (ShotType == 0) then
-                                          uppervalue = math.ceil(5*DifficultyMultipliers[Difficulty][1])
-                                        elseif (math.random() < 0.5) then
-                                          uppervalue = math.ceil(4*DifficultyMultipliers[Difficulty][1])
-                                        end
-                                        local upperlimit = 8
-                                        if UsingSpecialCharacter then
-                                          upperlimit = 10
-                                        end
-                                        if not ShotTypes[ShotIndex][6] then --Large bullets
-                                          upperlimit = math.ceil(upperlimit/2)
-                                        end
-                                        local maximum = math.min(upperlimit,SpreadCount+uppervalue)
-                                        local minimum = math.max(1,math.min(maximum,SpreadCount)-lowervalue)
-                                        
-                                        --print("---Enemy "..i.."---")
-                                        --print(minimum,maximum)
-                                        SpreadCount = math.random(minimum,maximum)
-                                        if SpreadAngle < 360 then
-                                          if SpreadCount == 1 then
-                                            SpreadAngle = 0.1
+                                        elseif AimType >= 11 and AimType <= 14 then
+                                          ExtraShotCount = math.random(3,5)
+                                        elseif AimType >= 31 and AimType <= 34 then
+                                          if ShotTypes[ShotIndex][6] then
+                                            ExtraShotCount = math.random(2,3)
                                           else
-                                            if OriginalSpreadCount == 1 then
-                                              SpreadAngle = math.min(360,(20/DifficultyMultipliers[Difficulty][1])*(SpreadCount-1))
+                                            AimType = AimType - 30
+                                            ExtraShotCount = 0
+                                          end
+                                        end
+                                      end
+                                      if AimSpinSpeed == 0 then
+                                        local MaxCircularSpreadCount = 4+math.ceil(8*DifficultyMultipliers[Difficulty][1]) --For large bullets
+                                        if (SpreadCount == 1) and (FiringTime == TotalFiringTime) and (math.random() < 0.2) then
+                                          local PlusMinus = 1
+                                          if math.random() < 0.5 then
+                                            PlusMinus = -1
+                                          end
+                                          AimSpinSpeed = (6 * math.random(1,3)) * PlusMinus
+                                          EnsureMultipleShots = true
+                                        elseif (SpreadAngle < 360) and (Weight == 0) and (not (NewID == 235)) and (math.random() < 0.1) then
+                                          SpreadAngle = 360
+                                          SpreadCount = math.random(0,8*DifficultyMultipliers[Difficulty][1]) + 8
+                                          if ((NewID == 256) or (math.random() < 0.2)) then
+                                            TurnSpeed = (math.random()*4) + 2
+                                            if math.random() < 0.5 then
+                                              TurnSpeed = -TurnSpeed
+                                            end
+                                            if (NewID == 256) then
+                                              Lifetime = 120
+                                              SpeedMod = math.max(0,SpeedMod)
+                                            elseif Lifetime == 0 then
+                                              Lifetime = math.random(30,120)
+                                            end
+                                            if ShotTypes[ShotIndex][3] then
+                                              SpeedMod = math.max(0,SpeedMod)
+                                            end
+                                          end
+                                        elseif (SpreadAngle >= 360) and (SpreadCount > MaxCircularSpreadCount) then
+                                          if (not ShotTypes[ShotIndex][6]) and ShotTypes[OldShotIndex][6] then
+                                            SpreadCount = math.max(MaxCircularSpreadCount,math.ceil(SpreadCount/2))
+                                          end
+                                        elseif (SpreadCount < 8) then
+                                          local lowervalue = 1
+                                          local uppervalue = 1
+                                          if (SpreadCount > 1) and (math.random() < 0.5) then
+                                            lowervalue = math.ceil(1/DifficultyMultipliers[Difficulty][1])
+                                          end
+                                          if (ShotType == 0) then
+                                            uppervalue = math.ceil(5*DifficultyMultipliers[Difficulty][1])
+                                          elseif (math.random() < 0.5) then
+                                            uppervalue = math.ceil(4*DifficultyMultipliers[Difficulty][1])
+                                          end
+                                          local upperlimit = 8
+                                          if UsingSpecialCharacter then
+                                            upperlimit = 10
+                                          end
+                                          if not ShotTypes[ShotIndex][6] then --Large bullets
+                                            upperlimit = math.ceil(upperlimit/2)
+                                          end
+                                          local maximum = math.min(upperlimit,SpreadCount+uppervalue)
+                                          local minimum = math.max(1,math.min(maximum,SpreadCount)-lowervalue)
+                                          
+                                          --print("---Enemy "..i.."---")
+                                          --print(minimum,maximum)
+                                          SpreadCount = math.random(minimum,maximum)
+                                          if SpreadAngle < 360 then
+                                            if SpreadCount == 1 then
+                                              SpreadAngle = 0.1
                                             else
-                                              SpreadAngle = math.min(360, ((SpreadAngle / OriginalSpreadCount) * SpreadCount) )
+                                              if OriginalSpreadCount == 1 then
+                                                SpreadAngle = math.min(360,(20/DifficultyMultipliers[Difficulty][1])*(SpreadCount-1))
+                                              else
+                                                SpreadAngle = math.min(360, ((SpreadAngle / OriginalSpreadCount) * SpreadCount) )
+                                              end
                                             end
                                           end
                                         end
                                       end
+                                    --elseif (not ShotTypes[ShotIndex][5]) and (not (Weight == 0)) then
+                                      
                                     end
-                                  --elseif (not ShotTypes[ShotIndex][5]) and (not (Weight == 0)) then
                                     
-                                  end
-                                  
-                                  if not (Character == 132) then --if not Minoriko
-                                    if not (SplitType == 1) then
-                                      --if (SpreadAngle < 360) then
-                                        if ShotType == 0 then
-                                          TotalFiringTime = 10+(math.random(1,5)*10)
-                                          FireRate = math.floor(TotalFiringTime / math.random(1,4))
-                                          if (AimType == 4) or (AimType == 34) then
-                                            ConsecutiveFiringTime = 1
-                                            ConsecutiveFireRate = 1
-                                          else
-                                            ConsecutiveFiringTime = math.random(1,math.ceil(FireRate/2))
-                                            ConsecutiveFireRate = math.min(ConsecutiveFiringTime,math.random(1,ConsecutiveFiringTime)/DifficultyMultipliers[Difficulty][1])
+                                    if not (Character == 132) then --if not Minoriko
+                                      if not (SplitType == 1) then
+                                        --if (SpreadAngle < 360) then
+                                          if ShotType == 0 then
+                                            TotalFiringTime = 10+(math.random(1,5)*10)
+                                            FireRate = math.floor(TotalFiringTime / math.random(1,4))
+                                            if (AimType == 4) or (AimType == 34) then
+                                              ConsecutiveFiringTime = 1
+                                              ConsecutiveFireRate = 1
+                                            else
+                                              ConsecutiveFiringTime = math.random(1,math.ceil(FireRate/2))
+                                              ConsecutiveFireRate = math.min(ConsecutiveFiringTime,math.random(1,ConsecutiveFiringTime)/DifficultyMultipliers[Difficulty][1])
+                                            end
                                           end
-                                        end
-                                        TotalFiringTime = math.max(1,TotalFiringTime)
-                                        FireRate = math.max(1,FireRate)
-                                        ConsecutiveFiringTime = math.max(1,ConsecutiveFiringTime)
-                                        ConsecutiveFireRate = math.max(1,ConsecutiveFireRate)
-                                        
-                                        local Difference = math.max(0,SpreadCount-OriginalSpreadCount)
-                                        local FireCount = math.floor(TotalFiringTime/FireRate)
-                                        local ConsecutiveFireCount = math.floor(ConsecutiveFiringTime/ConsecutiveFireRate)
-                                        
-                                        if not (Character == 14) then
-                                          local shotcap = math.max(FireCount,8)
-                                          if (SpreadAngle >= 360) then
-                                            shotcap = math.max(FireCount,1)
+                                          TotalFiringTime = math.max(1,TotalFiringTime)
+                                          FireRate = math.max(1,FireRate)
+                                          ConsecutiveFiringTime = math.max(1,ConsecutiveFiringTime)
+                                          ConsecutiveFireRate = math.max(1,ConsecutiveFireRate)
+                                          
+                                          local Difference = math.max(0,SpreadCount-OriginalSpreadCount)
+                                          local FireCount = math.floor(TotalFiringTime/FireRate)
+                                          local ConsecutiveFireCount = math.floor(ConsecutiveFiringTime/ConsecutiveFireRate)
+                                          
+                                          if not (Character == 14) then
+                                            local shotcap = math.max(FireCount,8)
+                                            if (SpreadAngle >= 360) then
+                                              shotcap = math.max(FireCount,1)
+                                            end
+                                            if not ShotTypes[ShotIndex][6] then
+                                              shotcap = math.ceil(shotcap/2)
+                                            end
+                                            local maximum = math.min(shotcap,FireCount+math.ceil(shotcap/(4+Difference)))
+                                            local minimum = math.max(1,math.min(maximum,FireCount)-math.ceil(maximum/3))
+                                            if EnsureMultipleShots then
+                                              minimum = math.max(minimum,5)
+                                              maximum = maximum+5
+                                            end
+                                            maximum = math.max(minimum,maximum)
+                                            FireCount = math.random(minimum,maximum)
+                                          end
+                                          
+                                          local shotcap = math.max(ConsecutiveFireCount,5)
+                                          if (SpreadAngle >= 360) or (AimType == 4) or (AimType == 34) then
+                                            shotcap = math.max(ConsecutiveFireCount,1)
                                           end
                                           if not ShotTypes[ShotIndex][6] then
-                                            shotcap = math.ceil(shotcap/2)
-                                          end
-                                          local maximum = math.min(shotcap,FireCount+math.ceil(shotcap/(4+Difference)))
-                                          local minimum = math.max(1,math.min(maximum,FireCount)-math.ceil(maximum/3))
-                                          if EnsureMultipleShots then
-                                            minimum = math.max(minimum,5)
-                                            maximum = maximum+5
-                                          end
-                                          maximum = math.max(minimum,maximum)
-                                          FireCount = math.random(minimum,maximum)
-                                        end
-                                        
-                                        local shotcap = math.max(ConsecutiveFireCount,5)
-                                        if (SpreadAngle >= 360) or (AimType == 4) or (AimType == 34) then
-                                          shotcap = math.max(ConsecutiveFireCount,1)
-                                        end
-                                        if not ShotTypes[ShotIndex][6] then
-                                          if EnsureMultipleShots then
-                                            shotcap = math.ceil(shotcap/2)
-                                          else
-                                            shotcap = math.ceil(shotcap/4)
-                                          end
-                                        elseif EnsureMultipleShots then
-                                          shotcap = shotcap + 5
-                                        end
-                                        local maximum = math.min(shotcap,ConsecutiveFireCount+math.ceil(shotcap/(4+Difference)))
-                                        local minimum = math.max(1,math.min(maximum,ConsecutiveFireCount)-math.ceil(maximum/3))
-                                        maximum = math.max(minimum,maximum)
-                                        ConsecutiveFireCount = math.random(minimum,maximum)
-                                        
-                                        FireRate = math.floor(TotalFiringTime/math.max(1,FireCount))
-                                        ConsecutiveFireRate = math.floor(ConsecutiveFiringTime/math.max(1,ConsecutiveFireCount))
-                                        
-                                        TotalFiringTime = math.max(1,TotalFiringTime)
-                                        FireRate = math.max(1,FireRate)
-                                        ConsecutiveFiringTime = math.max(1,ConsecutiveFiringTime)
-                                        ConsecutiveFireRate = math.max(1,ConsecutiveFireRate)
-                                        
-                                        if RefireDelay < TotalFiringTime then
-                                          RefireDelay = TotalFiringTime + (math.random(1,3) * 30)
-                                        end
-                                      --end
-                                    else
-                                      RefireDelay = math.random( math.max(TotalFiringTime,RefireDelay-30),RefireDelay+30  )
-                                    end
-                                    
-                                    if (not (NewID == 235)) and (not (Character == 14)) and (SplitType > 0 or (math.random() < ( DifficultyMultipliers[Difficulty][1]/4 ))) then
-                                      local AllowedToSplit = true
-                                      local SplitCap = 8
-                                      
-                                      BulletCount = (math.floor(TotalFiringTime/FireRate)*math.floor(ConsecutiveFiringTime/ConsecutiveFireRate))*SpreadCount
-                                      if ExtraShotCount > 1 then
-                                        BulletCount = BulletCount * ExtraShotCount
-                                      end
-                                      if (BulletCount >= MaxBulletCount_Normal) and (SplitType == 0) then
-                                        AllowedToSplit = false
-                                      elseif BulletCount >= MaxBulletCount_Normal/2 then
-                                        SplitCap = 1
-                                      elseif BulletCount >= MaxBulletCount_Normal/4 then
-                                        SplitCap = 3
-                                      elseif BulletCount >= MaxBulletCount_Normal/8 then
-                                        SplitCap = 5
-                                      end
-                                      
-                                      if AllowedToSplit then
-                                        if SplitShotType == 0 then
-                                          SplitShotType = NewType + 0
-                                        end
-                                        local SplitID = math.floor(SplitShotType/100)
-                                        local SplitShotIndex = ShotTypeLookup[SplitID]
-                                        local ShotTypeChanged = false
-                                        if not ((SplitID == 314) or (SplitID == 317)) then --Mystia Shot and Star Shot will split into same type
-                                          for a = 1,3,1 do --Try 3 times
-                                            local NewIndex = math.random(1,#ShotTypes)
-                                            if ShotTypes[NewIndex][7] then
-                                              local Color = math.random(1,ShotTypes[NewIndex][2]) - 1
-                                              if not ShotTypes[NewIndex][5] then --Cannot be dangerous
-                                                SplitShotIndex = NewIndex
-                                                SplitID = ShotTypes[NewIndex][1]
-                                                SplitShotType = (SplitID*100)+Color
-                                                ShotTypeChanged = true
-                                                break
-                                              end
-                                            end
-                                          end
-                                        end
-
-                                        if (not ShotTypeChanged) and (not (SplitShotIndex == nil)) then
-                                          local Color = math.random(1,ShotTypes[SplitShotIndex][2]) - 1
-                                          SplitShotType = (SplitID*100)+Color
-                                        end
-                                        
-                                        if not (SplitShotIndex == nil) then
-                                          if not (SplitType == 1) then
-                                            if Lifetime == 0 then
-                                              Lifetime = 20 + (math.random(1,7) * 10)
-                                            end
-                                            if SplitSpeed <= 0 then
-                                              SplitSpeed = DifficultyMultipliers[Difficulty][2]
-                                            end
-                                            local OldSplitCount = SplitCount + 0
-                                            if ShotTypes[ShotIndex][6] then
-                                              SplitCount = math.min( SplitCap,math.max(SplitCount,math.random(1, math.ceil(3*DifficultyMultipliers[Difficulty][1]) )) )
+                                            if EnsureMultipleShots then
+                                              shotcap = math.ceil(shotcap/2)
                                             else
-                                              SplitCount = 1
+                                              shotcap = math.ceil(shotcap/4)
                                             end
-                                            if ShotTypes[SplitShotIndex][3] or ((not ShotTypes[SplitShotIndex][4]) and ((SpreadAngle >= 360) or (math.random() < 0.75))) then
-                                              if SplitType == 0 then
-                                                if (SplitCap > 1) and (math.random() < 0.25) then --Shoot out in all directions
-                                                  SplitAngle = 360
-                                                  SplitCount = math.min( SplitCap,math.random(SplitCount,SplitCount*2) )
-                                                  if (SplitCount >= 4) and (math.random() < 0.5) then
-                                                    SplitType = 1 --Aim directly in designated direction
-                                                    SplitAimDirection = math.random(-180,180)
-                                                  else
-                                                    SplitType = 3 --Aim in random cone
-                                                  end
-                                                else --Aim at player
-                                                  SplitType = math.random(1,2)*2
-                                                  if SplitType == 4 then --Fire in random cone at player
-                                                    SplitAngle = math.min(360,(25/DifficultyMultipliers[Difficulty][1])*SplitCount)
-                                                  end
-                                                end
-                                              else
-                                                if (SpreadAngle >= 360) and (SplitType == 2) then --Ring of bullets shot at player
-                                                  SplitCount = math.min(SplitCap,OldSplitCount)
-                                                  --SplitAngle = 0.1
-                                                elseif (SplitType == 2) or (SplitType == 4) then
-                                                  local NewSplitType = math.random(1,2) * 2
-                                                  if (NewSplitType == 4) and (not (SplitType == 4)) then
-                                                    SplitAngle = math.min(360,(25/DifficultyMultipliers[Difficulty][1])*SplitCount)
-                                                  end
-                                                  SplitType = NewSplitType
+                                          elseif EnsureMultipleShots then
+                                            shotcap = shotcap + 5
+                                          end
+                                          local maximum = math.min(shotcap,ConsecutiveFireCount+math.ceil(shotcap/(4+Difference)))
+                                          local minimum = math.max(1,math.min(maximum,ConsecutiveFireCount)-math.ceil(maximum/3))
+                                          maximum = math.max(minimum,maximum)
+                                          ConsecutiveFireCount = math.random(minimum,maximum)
+                                          
+                                          FireRate = math.floor(TotalFiringTime/math.max(1,FireCount))
+                                          ConsecutiveFireRate = math.floor(ConsecutiveFiringTime/math.max(1,ConsecutiveFireCount))
+                                          
+                                          TotalFiringTime = math.max(1,TotalFiringTime)
+                                          FireRate = math.max(1,FireRate)
+                                          ConsecutiveFiringTime = math.max(1,ConsecutiveFiringTime)
+                                          ConsecutiveFireRate = math.max(1,ConsecutiveFireRate)
+                                          
+                                          if RefireDelay < TotalFiringTime then
+                                            RefireDelay = TotalFiringTime + (math.random(1,3) * 30)
+                                          end
+                                        --end
+                                      else
+                                        RefireDelay = math.random( math.max(TotalFiringTime,RefireDelay-30),RefireDelay+30  )
+                                      end
+                                      
+                                      if (not (NewID == 235)) and (not (Character == 14)) and (SplitType > 0 or (math.random() < ( DifficultyMultipliers[Difficulty][1]/4 ))) then
+                                        local AllowedToSplit = true
+                                        local SplitCap = 8
+                                        
+                                        BulletCount = (math.floor(TotalFiringTime/FireRate)*math.floor(ConsecutiveFiringTime/ConsecutiveFireRate))*SpreadCount
+                                        if ExtraShotCount > 1 then
+                                          BulletCount = BulletCount * ExtraShotCount
+                                        end
+                                        if (BulletCount >= MaxBulletCount_Normal) and (SplitType == 0) then
+                                          AllowedToSplit = false
+                                        elseif BulletCount >= MaxBulletCount_Normal/2 then
+                                          SplitCap = 1
+                                        elseif BulletCount >= MaxBulletCount_Normal/4 then
+                                          SplitCap = 3
+                                        elseif BulletCount >= MaxBulletCount_Normal/8 then
+                                          SplitCap = 5
+                                        end
+                                        
+                                        if AllowedToSplit then
+                                          if SplitShotType == 0 then
+                                            SplitShotType = NewType + 0
+                                          end
+                                          local SplitID = math.floor(SplitShotType/100)
+                                          local SplitShotIndex = ShotTypeLookup[SplitID]
+                                          local ShotTypeChanged = false
+                                          if not ((SplitID == 314) or (SplitID == 317)) then --Mystia Shot and Star Shot will split into same type
+                                            for a = 1,3,1 do --Try 3 times
+                                              local NewIndex = math.random(1,#ShotTypes)
+                                              if ShotTypes[NewIndex][7] then
+                                                local Color = math.random(1,ShotTypes[NewIndex][2]) - 1
+                                                if not ShotTypes[NewIndex][5] then --Cannot be dangerous
+                                                  SplitShotIndex = NewIndex
+                                                  SplitID = ShotTypes[NewIndex][1]
+                                                  SplitShotType = (SplitID*100)+Color
+                                                  ShotTypeChanged = true
+                                                  break
                                                 end
                                               end
-                                              SplitSpeed = math.min(6, math.max(2,SplitSpeed * (1+((math.random()/2.5)-0.2))) )
-                                              SplitLifetime = math.random(1,2) * 10
-                                              SplitSpeedMod = (math.random()*0.2) - 0.1
-                                            else --Has Weight
-                                              SplitSpeedMod  = 0
-                                              SplitAngle = 25 + (math.random(1,4) * 5)
-                                              SplitAimDirection = -90
-                                              SplitWeight = (math.random()*0.2)+0.1
-                                              SplitType = 3 --general aiming direction
-                                              SplitLifetime = math.random(60,90)
-                                              SplitSpeed = math.max(2,SplitSpeed)
-                                              SplitCount = math.min( SplitCap,math.random(SplitCount,SplitCount*2) )
                                             end
+                                          end
+
+                                          if (not ShotTypeChanged) and (not (SplitShotIndex == nil)) then
+                                            local Color = math.random(1,ShotTypes[SplitShotIndex][2]) - 1
+                                            SplitShotType = (SplitID*100)+Color
+                                          end
+                                          
+                                          if not (SplitShotIndex == nil) then
+                                            if not (SplitType == 1) then
+                                              if Lifetime == 0 then
+                                                Lifetime = 20 + (math.random(1,7) * 10)
+                                              end
+                                              if SplitSpeed <= 0 then
+                                                SplitSpeed = DifficultyMultipliers[Difficulty][2]
+                                              end
+                                              local OldSplitCount = SplitCount + 0
+                                              if ShotTypes[ShotIndex][6] then
+                                                SplitCount = math.min( SplitCap,math.max(SplitCount,math.random(1, math.ceil(3*DifficultyMultipliers[Difficulty][1]) )) )
+                                              else
+                                                SplitCount = 1
+                                              end
+                                              if ShotTypes[SplitShotIndex][3] or ((not ShotTypes[SplitShotIndex][4]) and ((SpreadAngle >= 360) or (math.random() < 0.75))) then
+                                                if SplitType == 0 then
+                                                  if (SplitCap > 1) and (math.random() < 0.25) then --Shoot out in all directions
+                                                    SplitAngle = 360
+                                                    SplitCount = math.min( SplitCap,math.random(SplitCount,SplitCount*2) )
+                                                    if (SplitCount >= 4) and (math.random() < 0.5) then
+                                                      SplitType = 1 --Aim directly in designated direction
+                                                      SplitAimDirection = math.random(-180,180)
+                                                    else
+                                                      SplitType = 3 --Aim in random cone
+                                                    end
+                                                  else --Aim at player
+                                                    SplitType = math.random(1,2)*2
+                                                    if SplitType == 4 then --Fire in random cone at player
+                                                      SplitAngle = math.min(360,(25/DifficultyMultipliers[Difficulty][1])*SplitCount)
+                                                    end
+                                                  end
+                                                else
+                                                  if (SpreadAngle >= 360) and (SplitType == 2) then --Ring of bullets shot at player
+                                                    SplitCount = math.min(SplitCap,OldSplitCount)
+                                                    --SplitAngle = 0.1
+                                                  elseif (SplitType == 2) or (SplitType == 4) then
+                                                    local NewSplitType = math.random(1,2) * 2
+                                                    if (NewSplitType == 4) and (not (SplitType == 4)) then
+                                                      SplitAngle = math.min(360,(25/DifficultyMultipliers[Difficulty][1])*SplitCount)
+                                                    end
+                                                    SplitType = NewSplitType
+                                                  end
+                                                end
+                                                SplitSpeed = math.min(6, math.max(2,SplitSpeed * (1+((math.random()/2.5)-0.2))) )
+                                                SplitLifetime = math.random(1,2) * 10
+                                                SplitSpeedMod = (math.random()*0.2) - 0.1
+                                              else --Has Weight
+                                                SplitSpeedMod  = 0
+                                                SplitAngle = 25 + (math.random(1,4) * 5)
+                                                SplitAimDirection = -90
+                                                SplitWeight = (math.random()*0.2)+0.1
+                                                SplitType = 3 --general aiming direction
+                                                SplitLifetime = math.random(60,90)
+                                                SplitSpeed = math.max(2,SplitSpeed)
+                                                SplitCount = math.min( SplitCap,math.random(SplitCount,SplitCount*2) )
+                                              end
+                                            end
+                                          else
+                                            SplitShotType = 0
+                                            SplitSpeedMod  = 0
+                                            SplitAngle = 0.1
+                                            SplitAimDirection = 180
+                                            SplitWeight = 0
+                                            SplitType = 0
+                                            SplitLifetime = 0
+                                            SplitSpeed = 0
+                                            SplitCount = 0
                                           end
                                         else
                                           SplitShotType = 0
@@ -1929,373 +1965,366 @@ timer_onTimer(Timer, function()
                                         SplitSpeed = 0
                                         SplitCount = 0
                                       end
-                                    else
-                                      SplitShotType = 0
-                                      SplitSpeedMod  = 0
-                                      SplitAngle = 0.1
-                                      SplitAimDirection = 180
-                                      SplitWeight = 0
-                                      SplitType = 0
-                                      SplitLifetime = 0
-                                      SplitSpeed = 0
-                                      SplitCount = 0
                                     end
+                                  
                                   end
                                 
+                                  --[[print("----------Enemy "..i.."----------")
+                                  print("Bullet Type: "..NewType)
+                                  print("Aim Direction: "..AimDirection)
+                                  print("Aim Spin Speed: "..AimSpinSpeed)
+                                  print("Aim Type: "..AimType)
+                                  print("Shot Speed: "..Speed)
+                                  print("Lifetime: "..Lifetime)
+                                  print("Turn Speed: "..TurnSpeed)
+                                  print("Weight: "..Weight)
+                                  print("Spread Angle: "..SpreadAngle)
+                                  print("Spread Count: "..SpreadCount)
+                                  print("Shot Speed Modifier: "..SpeedMod)
+                                  print("Total Firing Time: "..TotalFiringTime)
+                                  print("Firing Time: "..FireRate)
+                                  print("Consecutive Firing Time: "..ConsecutiveFiringTime)
+                                  print("Consecutive Firing Rate: "..ConsecutiveFireRate)
+                                  print("Refire Delay: "..RefireDelay)
+                                  print("Extra Shot Count: "..ExtraShotCount)
+                                  print("Paired Bullet Spacing: "..PairedBulletSpacing)
+                                  print("Split Type: "..SplitType)
+                                  print("Split Bullet Type: "..SplitShotType)
+                                  print("Split Shot Speed: "..SplitSpeed)
+                                  print("Split Shot Speed Mod: "..SplitSpeedMod )
+                                  print("Split Count: "..SplitCount)
+                                  print("Split Angle: "..SplitAngle)
+                                  print("Split Lifetime: "..SplitLifetime)
+                                  print("Split Aim Direction: "..SplitAimDirection)
+                                  print("Split Weight: "..SplitWeight)]]
                                 end
-                              
-                                --[[print("----------Enemy "..i.."----------")
-                                print("Bullet Type: "..NewType)
-                                print("Aim Direction: "..AimDirection)
-                                print("Aim Spin Speed: "..AimSpinSpeed)
-                                print("Aim Type: "..AimType)
-                                print("Shot Speed: "..Speed)
-                                print("Lifetime: "..Lifetime)
-                                print("Turn Speed: "..TurnSpeed)
-                                print("Weight: "..Weight)
-                                print("Spread Angle: "..SpreadAngle)
-                                print("Spread Count: "..SpreadCount)
-                                print("Shot Speed Modifier: "..SpeedMod)
-                                print("Total Firing Time: "..TotalFiringTime)
-                                print("Firing Time: "..FireRate)
-                                print("Consecutive Firing Time: "..ConsecutiveFiringTime)
-                                print("Consecutive Firing Rate: "..ConsecutiveFireRate)
-                                print("Refire Delay: "..RefireDelay)
-                                print("Extra Shot Count: "..ExtraShotCount)
-                                print("Paired Bullet Spacing: "..PairedBulletSpacing)
-                                print("Split Type: "..SplitType)
-                                print("Split Bullet Type: "..SplitShotType)
-                                print("Split Shot Speed: "..SplitSpeed)
-                                print("Split Shot Speed Mod: "..SplitSpeedMod )
-                                print("Split Count: "..SplitCount)
-                                print("Split Angle: "..SplitAngle)
-                                print("Split Lifetime: "..SplitLifetime)
-                                print("Split Aim Direction: "..SplitAimDirection)
-                                print("Split Weight: "..SplitWeight)]]
+                              else
+                                DesiredBulletTypes[i] = 0
                               end
-                            else
-                              DesiredBulletTypes[i] = 0
-                            end
-                            
-                          else --if enemy can't shoot
-                            if not (readBytes(string.format("gnazo.exe+%X", EnemyExistsAddress+Offset),1) == 0) then
-                              if not (CharacterSpriteOffset == nil) then
-                                local CurrentSprite = readInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset))
-                                local NewSprite
-                                if not (DesiredSprite[i] == CurrentSprite) then
-                                  if math.random() < DifficultyMultipliers[Difficulty][1] then
-                                    if (Character == 23) then --Spirit
-                                      local NewSpriteIndex = math.random(1,4)
-                                      NewSprite = CharacterSpriteOffset+SpiritSprites[NewSpriteIndex][1]
-                                      if NewSpriteIndex > 1 then
-                                        writeInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset), NewSprite)
-                                        local OldHP = readInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset))
-                                        writeInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset), OldHP*SpiritSprites[NewSpriteIndex][2])
-                                        local OldContactDamage = readInteger(string.format("gnazo.exe+%X", EnemyContactDamageAddress+Offset))
-                                        writeInteger(string.format("gnazo.exe+%X", EnemyContactDamageAddress+Offset), OldContactDamage*SpiritSprites[NewSpriteIndex][3])
-                                        if NewSpriteIndex == 2 then --Purple Spirit (Fast)
-                                          writeFloat(string.format("gnazo.exe+%X",0x93EAEC + Offset),7) --Patrolling Speed
-                                          writeFloat(string.format("gnazo.exe+%X",0x93EAF0 + Offset),2.4) --Float Speed
-                                        elseif NewSpriteIndex == 3 then --Red Spirit (Homing)
-                                          writeBytes(string.format("gnazo.exe+%X",0x93EACE + Offset),34) --Movement Pattern (Stalk player)
-                                          writeFloat(string.format("gnazo.exe+%X",0x93EAE4 + Offset),1.7) --X Vel/Chase Speed
-                                          writeFloat(string.format("gnazo.exe+%X",0x93EAE8 + Offset),2) --Y Vel/Turn Speed
-                                          writeFloat(string.format("gnazo.exe+%X",0x93EAEC + Offset),0) --Patrolling Speed
-                                          writeFloat(string.format("gnazo.exe+%X",0x93EAF0 + Offset),0) --Float Speed
-                                        elseif NewSpriteIndex == 4 then --Metal Spirit (Invulnerable)
-                                          for a = 1,8,1 do
-                                            writeFloat(string.format("gnazo.exe+%X", EnemyAffinityAddressStart+Offset+(4*(a-1))),0)
-                                          end
-                                        end
-                                      elseif math.random() < 0.25 then
-                                        NewType = math.random(11500,11503)
-                                        writeInteger(string.format("gnazo.exe+%X",0x940634 + Offset),14400) --Initial Shooting Delay
-                                      end
-                                    elseif (Character == 1) or (Character == 2) then --Kedama (Normal and Tiny)
-                                      local CurrentSprite = readInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset))
-                                      local CurrentSpriteIndex = 0
-                                      local t = 1
-                                      if (Character == 1) then
-                                        for s = 1,8,1 do
-                                          if CharacterSpriteOffset+KedamaSprites[s][1] == CurrentSprite then
-                                            CurrentSpriteIndex = s
-                                            break
-                                          end
-                                        end
-                                      else
-                                        CurrentSpriteIndex = 1
-                                        t = 2
-                                      end
-                                      NewSpriteIndex = math.random(1,8)
-                                      if (NewSpriteIndex < 8) or (Character == 2) or (math.random() < 0.25) then
-                                        NewSprite = CharacterSpriteOffset+KedamaSprites[NewSpriteIndex][t]
-                                        if not (CurrentSpriteIndex == NewSpriteIndex) then
-                                          if (not (CurrentSpriteIndex == 8)) or (math.random() > 0.75) then
-                                            writeInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset), NewSprite)
-                                            local OldHP = readInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset))
-                                            local NewHP = math.ceil((OldHP / KedamaSprites[CurrentSpriteIndex][3]) * KedamaSprites[NewSpriteIndex][3])
-                                            writeInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset), NewHP)
-                                            local OldContactDamage = readInteger(string.format("gnazo.exe+%X", EnemyContactDamageAddress+Offset))
-                                            local NewContactDamage = math.ceil((OldHP / KedamaSprites[CurrentSpriteIndex][4]) * KedamaSprites[NewSpriteIndex][4])
-                                            writeInteger(string.format("gnazo.exe+%X", EnemyContactDamageAddress+Offset), NewContactDamage)
-                                            if NewSpriteIndex == 7 then
-                                              writeBytes(string.format("gnazo.exe+%X", EnemyMeleeGuardSettingAddress+Offset), 63)
-                                            end
+                              
+                            else --if enemy can't shoot
+                              if not (readBytes(string.format("gnazo.exe+%X", EnemyExistsAddress+Offset),1) == 0) then
+                                if not (CharacterSpriteOffset == nil) then
+                                  local CurrentSprite = readInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset))
+                                  local NewSprite
+                                  if not (DesiredSprite[i] == CurrentSprite) then
+                                    if math.random() < DifficultyMultipliers[Difficulty][1] then
+                                      if (Character == 23) then --Spirit
+                                        local NewSpriteIndex = math.random(1,4)
+                                        NewSprite = CharacterSpriteOffset+SpiritSprites[NewSpriteIndex][1]
+                                        if NewSpriteIndex > 1 then
+                                          writeInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset), NewSprite)
+                                          local OldHP = readInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset))
+                                          writeInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset), OldHP*SpiritSprites[NewSpriteIndex][2])
+                                          local OldContactDamage = readInteger(string.format("gnazo.exe+%X", EnemyContactDamageAddress+Offset))
+                                          writeInteger(string.format("gnazo.exe+%X", EnemyContactDamageAddress+Offset), OldContactDamage*SpiritSprites[NewSpriteIndex][3])
+                                          if NewSpriteIndex == 2 then --Purple Spirit (Fast)
+                                            writeFloat(string.format("gnazo.exe+%X",0x93EAEC + Offset),7) --Patrolling Speed
+                                            writeFloat(string.format("gnazo.exe+%X",0x93EAF0 + Offset),2.4) --Float Speed
+                                          elseif NewSpriteIndex == 3 then --Red Spirit (Homing)
+                                            writeBytes(string.format("gnazo.exe+%X",0x93EACE + Offset),34) --Movement Pattern (Stalk player)
+                                            writeFloat(string.format("gnazo.exe+%X",0x93EAE4 + Offset),1.7) --X Vel/Chase Speed
+                                            writeFloat(string.format("gnazo.exe+%X",0x93EAE8 + Offset),2) --Y Vel/Turn Speed
+                                            writeFloat(string.format("gnazo.exe+%X",0x93EAEC + Offset),0) --Patrolling Speed
+                                            writeFloat(string.format("gnazo.exe+%X",0x93EAF0 + Offset),0) --Float Speed
+                                          elseif NewSpriteIndex == 4 then --Metal Spirit (Invulnerable)
                                             for a = 1,8,1 do
-                                              writeFloat(string.format("gnazo.exe+%X", EnemyAffinityAddressStart+Offset+(4*(a-1))), KedamaSprites[NewSpriteIndex][5])
+                                              writeFloat(string.format("gnazo.exe+%X", EnemyAffinityAddressStart+Offset+(4*(a-1))),0)
+                                            end
+                                          end
+                                        elseif math.random() < 0.25 then
+                                          NewType = math.random(11500,11503)
+                                          writeInteger(string.format("gnazo.exe+%X",0x940634 + Offset),14400) --Initial Shooting Delay
+                                        end
+                                      elseif (Character == 1) or (Character == 2) then --Kedama (Normal and Tiny)
+                                        local CurrentSprite = readInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset))
+                                        local CurrentSpriteIndex = 0
+                                        local t = 1
+                                        if (Character == 1) then
+                                          for s = 1,8,1 do
+                                            if CharacterSpriteOffset+KedamaSprites[s][1] == CurrentSprite then
+                                              CurrentSpriteIndex = s
+                                              break
+                                            end
+                                          end
+                                        else
+                                          CurrentSpriteIndex = 1
+                                          t = 2
+                                        end
+                                        NewSpriteIndex = math.random(1,8)
+                                        if (NewSpriteIndex < 8) or (Character == 2) or (math.random() < 0.25) then
+                                          NewSprite = CharacterSpriteOffset+KedamaSprites[NewSpriteIndex][t]
+                                          if not (CurrentSpriteIndex == NewSpriteIndex) then
+                                            if (not (CurrentSpriteIndex == 8)) or (math.random() > 0.75) then
+                                              writeInteger(string.format("gnazo.exe+%X", EnemySpriteAddress+Offset), NewSprite)
+                                              local OldHP = readInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset))
+                                              local NewHP = math.ceil((OldHP / KedamaSprites[CurrentSpriteIndex][3]) * KedamaSprites[NewSpriteIndex][3])
+                                              writeInteger(string.format("gnazo.exe+%X", EnemyHPAddress+Offset), NewHP)
+                                              local OldContactDamage = readInteger(string.format("gnazo.exe+%X", EnemyContactDamageAddress+Offset))
+                                              local NewContactDamage = math.ceil((OldHP / KedamaSprites[CurrentSpriteIndex][4]) * KedamaSprites[NewSpriteIndex][4])
+                                              writeInteger(string.format("gnazo.exe+%X", EnemyContactDamageAddress+Offset), NewContactDamage)
+                                              if NewSpriteIndex == 7 then
+                                                writeBytes(string.format("gnazo.exe+%X", EnemyMeleeGuardSettingAddress+Offset), 63)
+                                              end
+                                              for a = 1,8,1 do
+                                                writeFloat(string.format("gnazo.exe+%X", EnemyAffinityAddressStart+Offset+(4*(a-1))), KedamaSprites[NewSpriteIndex][5])
+                                              end
                                             end
                                           end
                                         end
                                       end
                                     end
+                                    DesiredSprite[i] = NewSprite or CurrentSprite
                                   end
-                                  DesiredSprite[i] = NewSprite or CurrentSprite
                                 end
                               end
                             end
-                          end
+                              
+                            writeInteger(string.format("gnazo.exe+%X", EnemyBulletAddress+Offset), NewType)
                             
-                          writeInteger(string.format("gnazo.exe+%X", EnemyBulletAddress+Offset), NewType)
-                          
-                          writeFloat(string.format("gnazo.exe+%X", EnemyAimDirectionAddress+Offset), AimDirection)
-                          writeFloat(string.format("gnazo.exe+%X", EnemyAimSpinSpeedAddress+Offset),AimSpinSpeed)
-                          writeBytes(string.format("gnazo.exe+%X", EnemyShotAimingAddress+Offset), AimType)
-                          writeFloat(string.format("gnazo.exe+%X", EnemyShotVelocityAddress+Offset), Speed)
-                          writeInteger(string.format("gnazo.exe+%X", EnemyShotLifetimeAddress+Offset), Lifetime)
-                          writeFloat(string.format("gnazo.exe+%X", EnemyShotTurningRateAddress+Offset), TurnSpeed)
-                          
-                          writeFloat(string.format("gnazo.exe+%X", EnemyShotWeightAddress+Offset), Weight)
-                          writeFloat(string.format("gnazo.exe+%X", EnemyShotSpreadAngleAddress+Offset), SpreadAngle)
-                          writeBytes(string.format("gnazo.exe+%X", EnemyShotSpreadCountAddress+Offset), SpreadCount)
-                          
-                          writeFloat(string.format("gnazo.exe+%X", EnemyShotVelocityModAddress+Offset), SpeedMod)
-                          writeBytes(string.format("gnazo.exe+%X", EnemyShotSplitingAddress+Offset), SplitType)
-                          
-                          writeInteger(string.format("gnazo.exe+%X", EnemySecondaryBulletAddress+Offset), SplitShotType)
-                          writeFloat(string.format("gnazo.exe+%X", EnemyShotSplitVelocityAddress+Offset), SplitSpeed)
-                          writeInteger(string.format("gnazo.exe+%X", EnemyShotSplitCountAddress+Offset), SplitCount)
-                          writeInteger(string.format("gnazo.exe+%X", EnemyShotSplitLifetimeAddress+Offset), SplitLifetime)
-                          writeFloat(string.format("gnazo.exe+%X", EnemyShotSplitConeAddress+Offset), SplitAngle)
-                          
-                          writeFloat(string.format("gnazo.exe+%X", EnemyShotSplitVelocityModAddress+Offset),SplitSpeedMod)
-                          writeFloat(string.format("gnazo.exe+%X", EnemyShotSplitAimingDirectionAddress+Offset),SplitAimDirection)
-                          writeFloat(string.format("gnazo.exe+%X", EnemyShotSplitWeightAddress+Offset),SplitWeight)
-                          
-                          writeInteger(string.format("gnazo.exe+%X", EnemyShotTotalFiringTimeAddress+Offset),TotalFiringTime)
-                          writeInteger(string.format("gnazo.exe+%X", EnemyShotFireRateAddress+Offset),FireRate)
-                          writeInteger(string.format("gnazo.exe+%X", EnemyShotConsFiringTimeAddress+Offset),ConsecutiveFiringTime)
-                          writeInteger(string.format("gnazo.exe+%X", EnemyShotConsFireRateAddress+Offset),ConsecutiveFireRate)
-                          
-                          writeInteger(string.format("gnazo.exe+%X", EnemyRefireDelayAddress+Offset),RefireDelay)
-                          writeFloat(string.format("gnazo.exe+%X", EnemyExtraShotCountAddress+Offset),ExtraShotCount)
-                          writeFloat(string.format("gnazo.exe+%X", EnemyPairedBulletSpacingAddress+Offset),PairedBulletSpacing)
+                            writeFloat(string.format("gnazo.exe+%X", EnemyAimDirectionAddress+Offset), AimDirection)
+                            writeFloat(string.format("gnazo.exe+%X", EnemyAimSpinSpeedAddress+Offset),AimSpinSpeed)
+                            writeBytes(string.format("gnazo.exe+%X", EnemyShotAimingAddress+Offset), AimType)
+                            writeFloat(string.format("gnazo.exe+%X", EnemyShotVelocityAddress+Offset), Speed)
+                            writeInteger(string.format("gnazo.exe+%X", EnemyShotLifetimeAddress+Offset), Lifetime)
+                            writeFloat(string.format("gnazo.exe+%X", EnemyShotTurningRateAddress+Offset), TurnSpeed)
+                            
+                            writeFloat(string.format("gnazo.exe+%X", EnemyShotWeightAddress+Offset), Weight)
+                            writeFloat(string.format("gnazo.exe+%X", EnemyShotSpreadAngleAddress+Offset), SpreadAngle)
+                            writeBytes(string.format("gnazo.exe+%X", EnemyShotSpreadCountAddress+Offset), SpreadCount)
+                            
+                            writeFloat(string.format("gnazo.exe+%X", EnemyShotVelocityModAddress+Offset), SpeedMod)
+                            writeBytes(string.format("gnazo.exe+%X", EnemyShotSplitingAddress+Offset), SplitType)
+                            
+                            writeInteger(string.format("gnazo.exe+%X", EnemySecondaryBulletAddress+Offset), SplitShotType)
+                            writeFloat(string.format("gnazo.exe+%X", EnemyShotSplitVelocityAddress+Offset), SplitSpeed)
+                            writeInteger(string.format("gnazo.exe+%X", EnemyShotSplitCountAddress+Offset), SplitCount)
+                            writeInteger(string.format("gnazo.exe+%X", EnemyShotSplitLifetimeAddress+Offset), SplitLifetime)
+                            writeFloat(string.format("gnazo.exe+%X", EnemyShotSplitConeAddress+Offset), SplitAngle)
+                            
+                            writeFloat(string.format("gnazo.exe+%X", EnemyShotSplitVelocityModAddress+Offset),SplitSpeedMod)
+                            writeFloat(string.format("gnazo.exe+%X", EnemyShotSplitAimingDirectionAddress+Offset),SplitAimDirection)
+                            writeFloat(string.format("gnazo.exe+%X", EnemyShotSplitWeightAddress+Offset),SplitWeight)
+                            
+                            writeInteger(string.format("gnazo.exe+%X", EnemyShotTotalFiringTimeAddress+Offset),TotalFiringTime)
+                            writeInteger(string.format("gnazo.exe+%X", EnemyShotFireRateAddress+Offset),FireRate)
+                            writeInteger(string.format("gnazo.exe+%X", EnemyShotConsFiringTimeAddress+Offset),ConsecutiveFiringTime)
+                            writeInteger(string.format("gnazo.exe+%X", EnemyShotConsFireRateAddress+Offset),ConsecutiveFireRate)
+                            
+                            writeInteger(string.format("gnazo.exe+%X", EnemyRefireDelayAddress+Offset),RefireDelay)
+                            writeFloat(string.format("gnazo.exe+%X", EnemyExtraShotCountAddress+Offset),ExtraShotCount)
+                            writeFloat(string.format("gnazo.exe+%X", EnemyPairedBulletSpacingAddress+Offset),PairedBulletSpacing)
+                          end
                         end
                       end
                     end
                   end
                 end
-              end
-              for i = 0,1022,1 do --Clear bullet splitting flag after a bullet has split
-                local Offset = i * EnemyBulletOffset
-                if readBytes(string.format("gnazo.exe+%X", EnemyBulletExistsAddress+Offset),1) == 0 then
-                  if readBytes(string.format("gnazo.exe+%X", EnemyBulletWillSplitAddress+Offset),1) >= 1 then
-                    writeBytes(string.format("gnazo.exe+%X", EnemyBulletWillSplitAddress+Offset),0)
+                for i = 0,1022,1 do --Clear bullet splitting flag after a bullet has split
+                  local Offset = i * EnemyBulletOffset
+                  if readBytes(string.format("gnazo.exe+%X", EnemyBulletExistsAddress+Offset),1) == 0 then
+                    if readBytes(string.format("gnazo.exe+%X", EnemyBulletWillSplitAddress+Offset),1) >= 1 then
+                      writeBytes(string.format("gnazo.exe+%X", EnemyBulletWillSplitAddress+Offset),0)
+                    end
+                  end
+                end
+                
+                if not (CharacterSpriteOffset == nil) then
+                  if (IngameMenu == 0) then
+                    MystiaEXLevel = readBytes("gnazo.exe+933CB6",1) --Map data: 55 > 55
+                    local Intensity = 1
+                    local PercChance = 0.05
+                    if MystiaEXLevel > 0 then
+                      Intensity = Intensity + ((MystiaEXLevel-1) * 0.35)
+                      PercChance = MystiaEXLevel * 0.05
+                      if IsBossRoom[DestinationRoom] then
+                        PercChance = PercChance * 2
+                      end
+                    end
+                    if not SpawnedMystiaEX then
+                      if MystiaInRoom then
+                        PercChance = PercChance * 2
+                      end
+                      math.randomseed( RandomSeed+DestinationRoom )
+                      local mrgr = math.random()
+                      if (not (DestinationRoom == 10)) and math.random() < PercChance then
+                        local Count = math.random( 1,math.ceil(Intensity) )
+                        for i = 1,Count,1 do
+                          MystiaEXShooters[i] = {0,nil} --Times Spawned, Enemy Index
+                        end
+                      end
+                      SpawnedMystiaEX = true
+                    end
+                    if #MystiaEXShooters > 0 then
+                      local CameraXCoord = readFloat("gnazo.exe+91C3FC")
+                      local PlayerYCoord = readFloat("gnazo.exe+928BF4")
+                      --local Intensity = 10
+                      --local Count = math.random(1, math.ceil(Intensity/2) )
+                      for c = 1,#MystiaEXShooters,1 do
+                        local EnemyExpired = false
+                        local ResetLifeTimers = true
+                        if not (MystiaEXShooters[c][2] == nil) then
+                          local Offset = (MystiaEXShooters[c][2]-1) * CharDataOffset
+                          local XCoord = readFloat(string.format("gnazo.exe+%X",0x93EA40+Offset))
+                          local ShootingTimer = readInteger(string.format("gnazo.exe+%X",0x940814+Offset))
+                          local RefireDelay = readInteger(string.format("gnazo.exe+%X",0x9406FC+Offset))
+                          local EnemyExists = readBytes(string.format("gnazo.exe+%X",EnemyExistsAddress+Offset),1)
+                          if (XCoord < CameraXCoord) or (XCoord > (CameraXCoord + 640)) then
+                            EnemyExpired = true
+                            ResetLifeTimers = false
+                            writeBytes(string.format("gnazo.exe+%X",EnemyExistsAddress+Offset),0)
+                          elseif (ShootingTimer >= (RefireDelay - 10)) then
+                            EnemyExpired = true
+                            writeBytes(string.format("gnazo.exe+%X",EnemyExistsAddress+Offset),0)
+                          elseif (EnemyExists == 0) then
+                            EnemyExpired = true
+                            ResetLifeTimers = false
+                          end
+                        end
+                        if EnemyExpired or (MystiaEXShooters[c][2] == nil) then
+                          if ResetLifeTimers then
+                            MystiaEXShooters[c][1] = MystiaEXShooters[c][1] + 1
+                          end
+                          math.randomseed( (RandomSeed+DestinationRoom)*(c*MystiaEXShooters[c][1])+math.floor(CameraXCoord) )
+                          local mrgr = math.random()
+                          local YCoord
+                          local AimDirection
+                          local AimDirectionOffset = math.random(-20,20)
+                          if PlayerYCoord < 40 then --Player is entering from top of screen
+                            YCoord = 480
+                            AimDirection = 270 + AimDirectionOffset
+                          elseif PlayerYCoord > 440 then --Player is entering from bottom of screen
+                            YCoord = 0
+                            AimDirection = 90 + AimDirectionOffset
+                          else
+                            if math.random() < 0.5 then
+                              YCoord = 480
+                              AimDirection = 270 + AimDirectionOffset
+                            else
+                              YCoord = 0
+                              AimDirection = 90 + AimDirectionOffset
+                            end
+                          end
+                          local RoomEntranceXCoord = readFloat("gnazo.exe+7F7E50")
+                          local RoomLength = readFloat("gnazo.exe+93C8D4")
+                          local XCoord
+                          if RoomLength <= 640 or math.random() < 0.5 then --Small Room
+                            XCoord = math.random(math.floor(CameraXCoord)+80,math.ceil(CameraXCoord)+560)
+                          elseif (RoomEntranceXCoord - 640) < (RoomLength * 0.333) then --Entered from Left side
+                            XCoord = math.random(math.floor(CameraXCoord)+460,math.ceil(CameraXCoord)+600)
+                          elseif (RoomEntranceXCoord - 640) > (RoomLength * 0.666) then --Entered from Right side
+                            XCoord = math.random(math.floor(CameraXCoord)+40,math.ceil(CameraXCoord)+180)
+                          else --Entered from middle
+                            XCoord = math.random(math.floor(CameraXCoord)+80,math.ceil(CameraXCoord)+560)
+                          end
+                          local BulletType = math.random(31400,31404)
+                          local FireDelay = (math.random(0,6) * 10) + (30*(c-1))
+                          local RefireTime = (120/DifficultyMultipliers[Difficulty][1]) + (60 * #MystiaEXShooters) + (math.random(0,6) * 30)
+                          --if Intensity > 1 then
+                          --  FireDelay = FireDelay / Intensity
+                          --  RefireTime = math.min(RefireTime,RefireTime/(Intensity/3))
+                          --end
+                          local TurnSpeed = math.random(10,30)/100
+                          if math.random() < 0.5 then
+                            TurnSpeed = -TurnSpeed
+                          end
+                          MystiaEXShooters[c][2] = CreateShooter(XCoord,YCoord,BulletType,AimDirection,TurnSpeed,FireDelay,RefireTime,ResetLifeTimers,MystiaEXShooters[c][2])
+                        end
+                      end
+                    end
                   end
                 end
               end
               
-              if not (CharacterSpriteOffset == nil) then
-                if (IngameMenu == 0) then
-                  MystiaEXLevel = readBytes("gnazo.exe+933CB6",1) --Map data: 55 > 55
-                  local Intensity = 1
-                  local PercChance = 0.05
-                  if MystiaEXLevel > 0 then
-                    Intensity = Intensity + ((MystiaEXLevel-1) * 0.35)
-                    PercChance = MystiaEXLevel * 0.05
-                    if IsBossRoom[DestinationRoom] then
-                      PercChance = PercChance * 2
-                    end
-                  end
-                  if not SpawnedMystiaEX then
-                    if MystiaInRoom then
-                      PercChance = PercChance * 2
-                    end
-                    math.randomseed( RandomSeed+DestinationRoom )
-                    local mrgr = math.random()
-                    if (not (DestinationRoom == 10)) and math.random() < PercChance then
-                      local Count = math.random( 1,math.ceil(Intensity) )
-                      for i = 1,Count,1 do
-                        MystiaEXShooters[i] = {0,nil} --Times Spawned, Enemy Index
-                      end
-                    end
-                    SpawnedMystiaEX = true
-                  end
-                  if #MystiaEXShooters > 0 then
-                    local CameraXCoord = readFloat("gnazo.exe+91C3FC")
-                    local PlayerYCoord = readFloat("gnazo.exe+928BF4")
-                    --local Intensity = 10
-                    --local Count = math.random(1, math.ceil(Intensity/2) )
-                    for c = 1,#MystiaEXShooters,1 do
-                      local EnemyExpired = false
-                      local ResetLifeTimers = true
-                      if not (MystiaEXShooters[c][2] == nil) then
-                        local Offset = (MystiaEXShooters[c][2]-1) * CharDataOffset
-                        local XCoord = readFloat(string.format("gnazo.exe+%X",0x93EA40+Offset))
-                        local ShootingTimer = readInteger(string.format("gnazo.exe+%X",0x940814+Offset))
-                        local RefireDelay = readInteger(string.format("gnazo.exe+%X",0x9406FC+Offset))
-                        local EnemyExists = readBytes(string.format("gnazo.exe+%X",EnemyExistsAddress+Offset),1)
-                        if (XCoord < CameraXCoord) or (XCoord > (CameraXCoord + 640)) then
-                          EnemyExpired = true
-                          ResetLifeTimers = false
-                          writeBytes(string.format("gnazo.exe+%X",EnemyExistsAddress+Offset),0)
-                        elseif (ShootingTimer >= (RefireDelay - 10)) then
-                          EnemyExpired = true
-                          writeBytes(string.format("gnazo.exe+%X",EnemyExistsAddress+Offset),0)
-                        elseif (EnemyExists == 0) then
-                          EnemyExpired = true
-                          ResetLifeTimers = false
-                        end
-                      end
-                      if EnemyExpired or (MystiaEXShooters[c][2] == nil) then
-                        if ResetLifeTimers then
-                          MystiaEXShooters[c][1] = MystiaEXShooters[c][1] + 1
-                        end
-                        math.randomseed( (RandomSeed+DestinationRoom)*(c*MystiaEXShooters[c][1])+math.floor(CameraXCoord) )
-                        local mrgr = math.random()
-                        local YCoord
-                        local AimDirection
-                        local AimDirectionOffset = math.random(-20,20)
-                        if PlayerYCoord < 40 then --Player is entering from top of screen
-                          YCoord = 480
-                          AimDirection = 270 + AimDirectionOffset
-                        elseif PlayerYCoord > 440 then --Player is entering from bottom of screen
-                          YCoord = 0
-                          AimDirection = 90 + AimDirectionOffset
-                        else
-                          if math.random() < 0.5 then
-                            YCoord = 480
-                            AimDirection = 270 + AimDirectionOffset
-                          else
-                            YCoord = 0
-                            AimDirection = 90 + AimDirectionOffset
+              if RandomizeBackgrounds then
+                if not (PlatformSpriteOffset == nil) then
+                  for i = 1,64,1 do
+                    local Offset = (i-1) * PlatformOffset
+                    if readBytes(string.format("gnazo.exe+%X",PlatformExistsAddress+Offset),1) >= 1 then
+                      if not PlatformHandled[i] then
+                        local AltColor = readInteger(string.format("gnazo.exe+%X",PlatformAltColorAddress+Offset))
+                        if not (DesiredPlatformColor[i] == AltColor) then
+                          --print("Handling Platform "..i)
+                          local Sprite = readInteger(string.format("gnazo.exe+%X",PlatformSpriteAddress+Offset))
+                          local SpriteIndex
+                          for s = 1,#PlatformSprites,1 do
+                            if PlatformSpriteOffset+PlatformSprites[s][1] == Sprite then
+                              SpriteIndex = s
+                              break
+                            end
                           end
-                        end
-                        local RoomEntranceXCoord = readFloat("gnazo.exe+7F7E50")
-                        local RoomLength = readFloat("gnazo.exe+93C8D4")
-                        local XCoord
-                        if RoomLength <= 640 or math.random() < 0.5 then --Small Room
-                          XCoord = math.random(math.floor(CameraXCoord)+80,math.ceil(CameraXCoord)+560)
-                        elseif (RoomEntranceXCoord - 640) < (RoomLength * 0.333) then --Entered from Left side
-                          XCoord = math.random(math.floor(CameraXCoord)+460,math.ceil(CameraXCoord)+600)
-                        elseif (RoomEntranceXCoord - 640) > (RoomLength * 0.666) then --Entered from Right side
-                          XCoord = math.random(math.floor(CameraXCoord)+40,math.ceil(CameraXCoord)+180)
-                        else --Entered from middle
-                          XCoord = math.random(math.floor(CameraXCoord)+80,math.ceil(CameraXCoord)+560)
-                        end
-                        local BulletType = math.random(31400,31404)
-                        local FireDelay = (math.random(0,6) * 10) + (30*(c-1))
-                        local RefireTime = (120/DifficultyMultipliers[Difficulty][1]) + (60 * #MystiaEXShooters) + (math.random(0,6) * 30)
-                        --if Intensity > 1 then
-                        --  FireDelay = FireDelay / Intensity
-                        --  RefireTime = math.min(RefireTime,RefireTime/(Intensity/3))
-                        --end
-                        local TurnSpeed = math.random(10,30)/100
-                        if math.random() < 0.5 then
-                          TurnSpeed = -TurnSpeed
-                        end
-                        MystiaEXShooters[c][2] = CreateShooter(XCoord,YCoord,BulletType,AimDirection,TurnSpeed,FireDelay,RefireTime,ResetLifeTimers,MystiaEXShooters[c][2])
-                      end
-                    end
-                  end
-                end
-              end
-            end
-            
-            if not (PlatformSpriteOffset == nil) then
-              for i = 1,64,1 do
-                local Offset = (i-1) * PlatformOffset
-                if readBytes(string.format("gnazo.exe+%X",PlatformExistsAddress+Offset),1) >= 1 then
-                  if not PlatformHandled[i] then
-                    local AltColor = readInteger(string.format("gnazo.exe+%X",PlatformAltColorAddress+Offset))
-                    if not (DesiredPlatformColor[i] == AltColor) then
-                      --print("Handling Platform "..i)
-                      local Sprite = readInteger(string.format("gnazo.exe+%X",PlatformSpriteAddress+Offset))
-                      local SpriteIndex
-                      for s = 1,#PlatformSprites,1 do
-                        if PlatformSpriteOffset+PlatformSprites[s][1] == Sprite then
-                          SpriteIndex = s
-                          break
-                        end
-                      end
-                      if not (SpriteIndex == nil) then
-                        math.randomseed( math.ceil((RandomSeed+(DestinationRoom*2.34))+(i*4.32)) )
-                        local mrgr = math.random()
-                        local RoomwideIndex = PlatformSprites[SpriteIndex][4]
-                        if RoomwideIndex == 0 then
-                          local NewColor = (math.random(1,PlatformSprites[SpriteIndex][2]) * PlatformSprites[SpriteIndex][3])
-                          if SpriteIndex == 13 then --Randomly sized rocks PogChamp
-                            local YCoord = readFloat(string.format("gnazo.exe+%X", PlatformYCoordAddress+Offset))
-                            local Size
-                            if YCoord < 340 then
-                              Size = math.random(1,3)
-                              if Size == 3 then
-                                Size = 4 --Exclude tall rocks
+                          if not (SpriteIndex == nil) then
+                            math.randomseed( math.ceil((RandomSeed+(DestinationRoom*2.34))+(i*4.32)) )
+                            local mrgr = math.random()
+                            local RoomwideIndex = PlatformSprites[SpriteIndex][4]
+                            if RoomwideIndex == 0 then
+                              local NewColor = (math.random(1,PlatformSprites[SpriteIndex][2]) * PlatformSprites[SpriteIndex][3])
+                              if SpriteIndex == 13 then --Randomly sized rocks PogChamp
+                                local YCoord = readFloat(string.format("gnazo.exe+%X", PlatformYCoordAddress+Offset))
+                                local Size
+                                if YCoord < 340 then
+                                  Size = math.random(1,3)
+                                  if Size == 3 then
+                                    Size = 4 --Exclude tall rocks
+                                  end
+                                else
+                                  Size = math.random(1,2)
+                                end
+                                if Size > 1 and ((not (Size == 4)) or (math.random() < 0.5)) then
+                                  NewColor = ((Size * 2) - NewColor)
+                                  if Size == 2 or Size == 4 then
+                                    writeInteger(string.format("gnazo.exe+%X", PlatformSpriteXSizeAddress+Offset),64)
+                                    writeFloat(string.format("gnazo.exe+%X", PlatformCollisionXSizeAddress +Offset),62)
+                                  end
+                                  if Size > 2 then
+                                    writeInteger(string.format("gnazo.exe+%X", PlatformSpriteYSizeAddress+Offset),64)
+                                    writeFloat(string.format("gnazo.exe+%X", PlatformCollisionYSizeAddress+Offset),62)
+                                    writeFloat(string.format("gnazo.exe+%X", PlatformYCoordAddress+Offset),YCoord-16)
+                                  end
+                                  if (Size == 2) then
+                                    writeInteger(string.format("gnazo.exe+%X", PlatformCollisionTypeAddress+Offset),10)
+                                  elseif (Size == 3) then
+                                    writeInteger(string.format("gnazo.exe+%X", PlatformCollisionTypeAddress+Offset),115)
+                                  elseif (Size == 4) then
+                                    writeInteger(string.format("gnazo.exe+%X", PlatformCollisionTypeAddress+Offset),110)
+                                  end
+                                else
+                                  NewColor = NewColor - 1
+                                end
+                              else
+                                NewColor = NewColor - 1
+                              end
+                              writeInteger(string.format("gnazo.exe+%X", PlatformAltColorAddress+Offset),NewColor)
+                              DesiredPlatformColor[i] = NewColor
+                              if PlatformSprites[SpriteIndex][3] > 1 then
+                                PlatformHandled[i] = true
                               end
                             else
-                              Size = math.random(1,2)
-                            end
-                            if Size > 1 and ((not (Size == 4)) or (math.random() < 0.5)) then
-                              NewColor = ((Size * 2) - NewColor)
-                              if Size == 2 or Size == 4 then
-                                writeInteger(string.format("gnazo.exe+%X", PlatformSpriteXSizeAddress+Offset),64)
-                                writeFloat(string.format("gnazo.exe+%X", PlatformCollisionXSizeAddress +Offset),62)
+                              local RoomwideColor = PlatformRoomwideColor[RoomwideIndex][AltColor]
+                              if RoomwideColor == nil then
+                                local NewColor = (math.random(1,PlatformSprites[SpriteIndex][2]) * PlatformSprites[SpriteIndex][3]) - 1
+                                writeInteger(string.format("gnazo.exe+%X", PlatformAltColorAddress+Offset),NewColor)
+                                DesiredPlatformColor[i] = NewColor
+                                PlatformRoomwideColor[RoomwideIndex][AltColor] = NewColor
+                                if PlatformSprites[SpriteIndex][3] > 1 then
+                                  PlatformHandled[i] = true
+                                end
+                              else
+                                writeInteger(string.format("gnazo.exe+%X", PlatformAltColorAddress+Offset),RoomwideColor)
+                                DesiredPlatformColor[i] = RoomwideColor
                               end
-                              if Size > 2 then
-                                writeInteger(string.format("gnazo.exe+%X", PlatformSpriteYSizeAddress+Offset),64)
-                                writeFloat(string.format("gnazo.exe+%X", PlatformCollisionYSizeAddress+Offset),62)
-                                writeFloat(string.format("gnazo.exe+%X", PlatformYCoordAddress+Offset),YCoord-16)
-                              end
-                              if (Size == 2) then
-                                writeInteger(string.format("gnazo.exe+%X", PlatformCollisionTypeAddress+Offset),10)
-                              elseif (Size == 3) then
-                                writeInteger(string.format("gnazo.exe+%X", PlatformCollisionTypeAddress+Offset),115)
-                              elseif (Size == 4) then
-                                writeInteger(string.format("gnazo.exe+%X", PlatformCollisionTypeAddress+Offset),110)
-                              end
-                            else
-                              NewColor = NewColor - 1
                             end
                           else
-                            NewColor = NewColor - 1
-                          end
-                          writeInteger(string.format("gnazo.exe+%X", PlatformAltColorAddress+Offset),NewColor)
-                          DesiredPlatformColor[i] = NewColor
-                          if PlatformSprites[SpriteIndex][3] > 1 then
+                            DesiredPlatformColor[i] = AltColor
                             PlatformHandled[i] = true
                           end
-                        else
-                          local RoomwideColor = PlatformRoomwideColor[RoomwideIndex][AltColor]
-                          if RoomwideColor == nil then
-                            local NewColor = (math.random(1,PlatformSprites[SpriteIndex][2]) * PlatformSprites[SpriteIndex][3]) - 1
-                            writeInteger(string.format("gnazo.exe+%X", PlatformAltColorAddress+Offset),NewColor)
-                            DesiredPlatformColor[i] = NewColor
-                            PlatformRoomwideColor[RoomwideIndex][AltColor] = NewColor
-                            if PlatformSprites[SpriteIndex][3] > 1 then
-                              PlatformHandled[i] = true
-                            end
-                          else
-                            writeInteger(string.format("gnazo.exe+%X", PlatformAltColorAddress+Offset),RoomwideColor)
-                            DesiredPlatformColor[i] = RoomwideColor
-                          end
                         end
-                      else
-                        DesiredPlatformColor[i] = AltColor
-                        PlatformHandled[i] = true
                       end
                     end
                   end
                 end
               end
+              
             end
           end
           
