@@ -47,7 +47,6 @@ While the game will be properly saved, note that the save file will only be load
 
 This function is sorta in beta at the moment. Here are some problems I'd like to look into at some point:
 -The save file it writes to is the last one you've used
--Bosses will always respawn, even after you pick them up
 -The character you're playing as will *not* spawn as a boss
 -Characters that can't jump high may not be able to access everything when Door Randomization is in use
 
@@ -60,6 +59,11 @@ This function is sorta in beta at the moment. Here are some problems I'd like to
 
 
 -------Changelog-------
+V3.02
+ -Improved the fix for the door randomization (It was randomly breaking shortcuts)
+ -Bosses in Solo Character mode no longer respawn (This was necessary for Kanako)
+ -Added a couple more bullet types to the availible enemy bullets
+
 V3.01
  -Potentially fixed the issue where doors very rarely don't randomize
  -Fixed a problem where you weren't able to delete save files due to the Solo Character handlers
