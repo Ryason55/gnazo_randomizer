@@ -9,6 +9,7 @@ local ObjectSpriteAddress = 0x7F9768
 
 local ObjectDataOffset = 0x578
 
+--Object State, Is Door, Target Room, Target Entrance ID, Room Created In, Shortcut to Unlock
 local ObjectStatusTable = {}
 for i = 1,256,1 do
   ObjectStatusTable[i] = {false,false,0,0,0}
@@ -202,6 +203,43 @@ for i = 0,24,1 do --Allows True Yukari to appear with "unusable" characters (SSC
   end
 end
 
+--Prevents bosses from reappearing in Solo Character mode
+--(Changes "Not Equal To" to "Less Than")
+writeBytes("gnazo.exe+BB6D7",0x7C) --Alice
+writeBytes("gnazo.exe+C3F57",0x7C) --Cirno 
+writeBytes("gnazo.exe+CBC77",0x7C) --Meiling
+writeBytes("gnazo.exe+D2E67",0x7C) --Patchouli
+writeBytes("gnazo.exe+E46F7",0x7C) --Sakuya
+writeBytes("gnazo.exe+105037",0x7C) --Remilia
+writeBytes("gnazo.exe+F94CA",0x7C) --Youmu
+writeBytes("gnazo.exe+111FAA",0x7C) --Yuyuko
+writeBytes("gnazo.exe+B491C",0x7C) --Rumia
+writeBytes("gnazo.exe+C3497",0x7C) --Daiyousei
+writeBytes("gnazo.exe+12800A",0x7C) --Flandre
+writeBytes("gnazo.exe+FE42A",0x7C) --Yukari
+writeBytes("gnazo.exe+FE58C",{0x0F,0x9C}) --Wall after Yukari
+--writeBytes("gnazo.exe+D309F",0x7C) --Gap Yukari in 42
+writeBytes("gnazo.exe+DB49A",0x7C) --Keine
+writeBytes("gnazo.exe+11AC6A",0x7C) --Tewi
+writeBytes("gnazo.exe+11FD8A",0x7C) --Reisen
+writeBytes("gnazo.exe+12EA7A",0x7C) --Eirin
+writeBytes("gnazo.exe+132B7A",0x7C) --Kaguya
+writeBytes("gnazo.exe+155CDA",0x7C) --Mokou
+writeBytes("gnazo.exe+F146A",0x7C) --Nitori
+writeBytes("gnazo.exe+13BF6A",0x7C) --Aya
+writeBytes("gnazo.exe+14343A",0x7C) --Sanae
+writeBytes("gnazo.exe+14C2AA",0x7C) --Kanako 1
+writeBytes("gnazo.exe+14C3CC",{0x0F,0x9C}) --Wall after Kanako 1
+writeBytes("gnazo.exe+14C4EA",0x7C) --Kanako 2
+writeBytes("gnazo.exe+15B8AA",0x7C) --Suwako
+
+local whole,decimal = math.modf(RandomSeed/10)
+if math.ceil(decimal*10) == 9 then --if the seed ends in 9...
+  --Allow Large Ice Chunk explosions to freeze the player
+  writeBytes("gnazo.exe+34803",{0xE4,0x57})
+end
+
+
 local BossRooms = {91,161,241,252,301,401,512,671,791,921,1001,1131,1291,1351,1391,1481,1581,1631,1762,1891,1991,2001,2101,2201}
 local IsBossRoom = {} --To be excluded from enemy randomization
 for i = 1,#BossRooms,1 do
@@ -222,7 +260,9 @@ local ShotTypes = {
 {108,4,true,false,false,true,true,{2}}, --Wave bullets again?
 {109,4,true,false,false,true,true,{9}}, --Butterflies (Yuuen Sekai)
 {110,4,true,false,false,true,true}, --Kunai
+{111,1,true,false,false,false,true,{8}}, --Youmu Spirit (Requires Lifetime)
 {112,1,true,false,false,true,true,{16}}, --Reisen's Bullets (Yuuen Sekai)
+{113,1,false,false,false,false,true,{21}}, --Aya Tornado (Requires Lifetime)
 {114,4,false,false,false,true,true}, --Small Pulsating Bullet
 {115,4,false,false,false,true,true}, --Pulsating Bullet
 {116,4,false,false,false,false,true,{25}}, --Music Notes
@@ -669,8 +709,10 @@ if RandomizeBackgrounds then
   end]]
 end
 
+local HalloweenMode = (RandomSeed == 666) or ((os.date('%m') == "10") and (os.date('%d') == "31"))
+
 for i = 1,220,1 do
-  if (RandomSeed == 666) or ((os.date('%m') == "10") and (os.date('%d') == "31")) then
+  if HalloweenMode then
     StageWaterColor[i] = 1
   else
     if (StageWaterColor[i] == nil) then
@@ -1092,19 +1134,6 @@ timer_onTimer(Timer, function()
           end
         end
       end
-      --[[local CurrentCharacter = readBytes("gnazo.exe+B8E0F4",1)
-      if CurrentCharacter == 0 then
-        local ReimuJoined = readBytes("gnazo.exe+854400",1)
-        if ReimuJoined == 0 then
-          for i = 1,24,1 do
-            local CharacterJoined = readBytes(string.format( "gnazo.exe+%X",0x854400+(0x2C*i) ),1)
-            if CharacterJoined == 1 then
-              writeBytes("gnazo.exe+B8E0F4",i) --Player 1 Character
-              writeBytes("gnazo.exe+B8E0F8",i) --Player 2 Character
-            end
-          end
-        end
-      end]]
       if not ChangingRooms then
         if not (RoomLoadedIndex == CurrentRoomLoaded) then
           CurrentRoomLoaded = RoomLoadedIndex + 0
@@ -1120,9 +1149,6 @@ timer_onTimer(Timer, function()
           SpawnedMystiaEX = false
           MystiaEXShooters = {}
           EnemyIsMystia = {}
-          for i = 1,256,1 do
-            ObjectStatusTable[i] = {false,false,0,0,0}
-          end
           --local Stage = math.floor(DestinationRoom/10)
           --local RoomNumber = DestinationRoom - (Stage*10)
           --print("----- Stage " .. Stage .. ", Room ".. RoomNumber .." -----")
@@ -1150,7 +1176,7 @@ timer_onTimer(Timer, function()
               end
             end
           end
-          if CurrentMusic > 0 and (not (IngameMenu == 6)) then
+          if CurrentMusic > 0 then
             if (DestinationRoom == 10) and (CurrentRoom == 10) then --Keep Life count at 5 when in main room
               if LifeCount < 5 then
                 writeBytes("gnazo.exe+850FDC",5)
@@ -1184,7 +1210,7 @@ timer_onTimer(Timer, function()
               local Offset = ObjectDataOffset * (i - 1)
               local ObjectState = readBytes(string.format("gnazo.exe+%X", ObjectStateAddress+Offset), 1)
               if ObjectStatusTable[i][1] then
-                if ObjectState == 0 then
+                if (ObjectState == 0) or not (ObjectStatusTable[i][5] == CurrentRoom) then
                   ObjectStatusTable[i][1] = false
                 elseif ObjectStatusTable[i][2] and (not (ObjectStatusTable[i][6] == nil)) and (ObjectState == 4) then
                   local Address = MapArrowsAddress + (((ObjectStatusTable[i][6][1] - 1) * MapArrowsOffset) + (ObjectStatusTable[i][6][2] - 1))
@@ -1218,7 +1244,7 @@ timer_onTimer(Timer, function()
                           if not (EntranceTable[DestinationRoom][TargetRoom][TargetEntranceID] == nil) then
                             local NewRoomID = EntranceTable[DestinationRoom][TargetRoom][TargetEntranceID][1]
                             local NewEntranceID = EntranceTable[DestinationRoom][TargetRoom][TargetEntranceID][2]
-                            --print("Door Randomized:",TargetRoom,TargetEntranceID,"changed to",NewRoomID,NewEntranceID)
+                            --print("Door Randomized:",TargetRoom,TargetEntranceID,"changed to",NewRoomID,NewEntranceID.." (Owned to Room "..DestinationRoom..")")
                             if not (EntranceTable[DestinationRoom][TargetRoom][TargetEntranceID][4] == nil) then
                               ShortcutUnlock = EntranceTable[DestinationRoom][TargetRoom][TargetEntranceID][4]
                             end
@@ -1245,7 +1271,7 @@ timer_onTimer(Timer, function()
                 end
               end
             end
-              
+            
             if (IngameMenu == 0) then
               if RandomizeEnemies then
                 local MystiaInRoom = false
@@ -1572,7 +1598,7 @@ timer_onTimer(Timer, function()
                                     elseif NewID == 300 then --Suwako Rings
                                       SpreadCount = 1
                                       SpreadAngle = 0.1
-                                    elseif NewID == 255 then --Keine Shot
+                                    elseif (NewID == 255) or (NewID == 362) then --Keine Shot or Eirin Shot
                                       if UsingSpecialCharacter then
                                         SpreadCount = math.random( 1,math.ceil(MaxBulletCount_Large*2) )
                                       else
@@ -1580,6 +1606,8 @@ timer_onTimer(Timer, function()
                                       end
                                       if SpreadCount == 1 then
                                         SpreadAngle = 0.1
+                                      elseif (NewID == 362) then --Eirin Shot
+                                        SpreadAngle = math.min(360,20*(SpreadCount-1))
                                       else
                                         SpreadAngle = math.min(360,(30/DifficultyMultipliers[Difficulty][1])*(SpreadCount-1))
                                       end
@@ -1669,7 +1697,7 @@ timer_onTimer(Timer, function()
                                           if ShotTypes[ShotIndex][6] and (math.random() < 0.25) then
                                             AimType = AimType + 30 --Bullets are paired up
                                             ExtraShotCount = math.random(2,3)
-                                            PairedBulletSpacing = 16
+                                            PairedBulletSpacing = math.random(1,3)*8
                                           end
                                         elseif AimType >= 11 and AimType <= 14 then
                                           ExtraShotCount = math.random(3,5)
@@ -1754,6 +1782,12 @@ timer_onTimer(Timer, function()
                                       
                                     end
                                     
+                                    if (NewID == 111) or (NewID == 113) then --Aya Tornado/Youmu Spirit
+                                      if (Lifetime < 60) then
+                                        Lifetime = 60 + (math.random(0,6) * 30)
+                                      end
+                                    end
+                                    
                                     if not (Character == 132) then --if not Minoriko
                                       if not (SplitType == 1) then
                                         --if (SpreadAngle < 360) then
@@ -1782,7 +1816,7 @@ timer_onTimer(Timer, function()
                                             if (SpreadAngle >= 360) then
                                               shotcap = math.max(FireCount,1)
                                             end
-                                            if not ShotTypes[ShotIndex][6] then
+                                            if (not ShotTypes[ShotIndex][6]) and (AimSpinSpeed == 0) then --Large Shots, not spinning
                                               shotcap = math.ceil(shotcap/2)
                                             end
                                             local maximum = math.min(shotcap,FireCount+math.ceil(shotcap/(4+Difference)))
@@ -1799,7 +1833,7 @@ timer_onTimer(Timer, function()
                                           if (SpreadAngle >= 360) or (AimType == 4) or (AimType == 34) then
                                             shotcap = math.max(ConsecutiveFireCount,1)
                                           end
-                                          if not ShotTypes[ShotIndex][6] then
+                                          if not ShotTypes[ShotIndex][6] and (AimSpinSpeed == 0) then --Large Shots, not spinning
                                             if EnsureMultipleShots then
                                               shotcap = math.ceil(shotcap/2)
                                             else
@@ -2330,7 +2364,7 @@ timer_onTimer(Timer, function()
           
         end
       else
-        if DestinationRoom == CurrentRoom then
+        if (DestinationRoom == CurrentRoom) then
           RoomID = CurrentRoom
           Stage = math.floor(CurrentRoom * 0.1)
           Room = RoomID - Stage
