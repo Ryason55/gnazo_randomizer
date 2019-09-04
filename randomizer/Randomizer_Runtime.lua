@@ -1,4 +1,4 @@
-local RandomSeed,RandomizeDoors,RandomizeAttacks,RandomizeEnemies,RandomizeBackgrounds,EntranceTable,AutoUnlocks = dofile(TrainerOrigin.."Randomizer_CurrentSettings.lua")
+local RandomSeed,RandomizeDoors,RandomizeAttacks,RandomizeEnemies,RandomizeBackgrounds,EntranceTable,AutoUnlocks,MapCoords = dofile(TrainerOrigin.."Randomizer_CurrentSettings.lua")
 
 local ObjectIndexAddress = 0x7F97D8
 local ObjectStateAddress = 0x7F976C
@@ -40,6 +40,38 @@ DoorTypeSpriteIndexes[35000] = 0 --Wooden
 DoorTypeSpriteIndexes[35100] = 32 --Red
 DoorTypeSpriteIndexes[35200] = 64 --Black
 DoorTypeSpriteIndexes[35300] = 96 --Golden
+
+local SpriteInUse = {{},{}}
+local FairySpriteFilepaths = {}
+FairySpriteFilepaths[1] = {"gr\\ribbonyouseim1.bmp","gr\\ribbonyouseim2.bmp","gr\\ribbonyouseim3.bmp","gr\\ribbonyouseim4.bmp","ex\\ribbonfairyw1.bmp","ex\\ribbonfairyw2.bmp","ex\\ribbonfairyw3.bmp"}
+FairySpriteFilepaths[2] = {"gr\\ribbonyouseim5.bmp","gr\\ribbonyouseim6.bmp","gr\\ribbonyouseim7.bmp","gr\\ribbonyouseim8.bmp","ex\\ribbonfairys1.bmp","ex\\ribbonfairys2.bmp","ex\\ribbonfairys3.bmp","ex\\ribbonfairys4.bmp","ex\\ribbonfairys5.bmp","ex\\ribbonfairys6.bmp"}
+local FairySpriteFilepathAddress = 0x3165A8
+math.randomseed(RandomSeed)
+local mrg = math.random()
+for i = 0,7,1 do
+  local tableindex = 1
+  if i >= 4 then
+    tableindex = 2
+  end
+  local SpriteIndex
+  for a = 1,50,1 do
+    SpriteIndex = math.random(1,#FairySpriteFilepaths[tableindex])
+    if not SpriteInUse[tableindex][SpriteIndex] then
+      SpriteInUse[tableindex][SpriteIndex] = true
+      local StringLength = string.len(FairySpriteFilepaths[tableindex][SpriteIndex])
+      for n = 1,21,1 do
+        if n <= StringLength then
+          local Byte = string.byte(FairySpriteFilepaths[tableindex][SpriteIndex],n)
+          writeBytes(string.format("gnazo.exe+%X", 0x3165A8 + (i*0x18) + (n-1) ),Byte)
+        else
+          writeBytes(string.format("gnazo.exe+%X", 0x3165A8 + (i*0x18) + (n-1) ),0)
+        end
+      end
+      break
+    end
+  end
+end
+
 
 local CharacterStartingSpirit = {110,100,100,70,60,140,110,130,100,130,70,70,140,140,100,120,110,120,140,120,100,110,120,140,140}
 --offset between player char data is 0x2C
@@ -473,7 +505,15 @@ local PlatformSpecialBehaviourAddress = 0xB35044
 
 local PlatformOffset = 0x504
 
+--Map Stage Coords Addresses
+local StageMapXCoordAddress = 0x92EAF0
+local StageMapYCoordAddress = 0x92EAF4
+local MapDataOffset = 0xF8
+
 local StageBackgroundOverrides = {}
+StageBackgroundOverrides[173] = 1480
+StageBackgroundOverrides[174] = 1480
+StageBackgroundOverrides[175] = 1480
 StageBackgroundOverrides[176] = 91
   
 for n = 1,3,1 do
@@ -482,6 +522,43 @@ for n = 1,3,1 do
   writeBytes(string.format("gnazo.exe+%X", 0x306692 + (n-1) ),Byte) --Stage 17-6 Background
   writeBytes(string.format("gnazo.exe+%X", 0x3153DE + (n-1) ),Byte) --Stage 17-6 Foreground
 end
+
+for n = 1,21,1 do
+  local Byte = string.byte("ex\\ys_173back.bmp    ",n) -- 17-3 Background
+  writeBytes(string.format("gnazo.exe+%X", 0x3066D0+(n-1) ),Byte)
+  local Byte = string.byte("ex\\ys_174back.bmp    ",n) -- 17-4 Background
+  writeBytes(string.format("gnazo.exe+%X", 0x3066B8+(n-1) ),Byte)
+  if n <= 17 then
+    local Byte = string.byte("ex\\ys_173fore.bmp",n) -- 17-3 Foreground
+    writeBytes(string.format("gnazo.exe+%X", 0x315410+(n-1) ),Byte)
+    local Byte = string.byte("ex\\ys_174fore.bmp",n) -- 17-4 Foreground
+    writeBytes(string.format("gnazo.exe+%X", 0x3153FC+(n-1) ),Byte)
+    local Byte = string.byte("ex\\ys_175fore.bmp",n) -- 17-5 Foreground
+    writeBytes(string.format("gnazo.exe+%X", 0x3153E8+(n-1) ),Byte)
+    if n <= 13 then
+      local Byte = string.byte("ex\\ys173.bmp ",n) -- 17-3 Collision
+      writeBytes(string.format("gnazo.exe+%X", 0x2F52E8+(n-1) ),Byte)
+      local Byte = string.byte("ex\\ys174.bmp ",n) -- 17-4 Collision
+      writeBytes(string.format("gnazo.exe+%X", 0x2F52D8+(n-1) ),Byte)
+      local Byte = string.byte("ex\\ys175.bmp ",n) -- 17-5 Collision
+      writeBytes(string.format("gnazo.exe+%X", 0x2F52C8+(n-1) ),Byte)
+    end
+  end
+end
+
+local addressthing = readInteger("gnazo.exe+BC7ED")
+writeBytes("gnazo.exe+1B0B73",{0x89,0x3D})
+writeInteger("gnazo.exe+1B0B75",addressthing)
+writeBytes("gnazo.exe+1B0B79",0xC3)
+
+writeBytes("gnazo.exe+BC7EC",0xE8)
+writeInteger("gnazo.exe+BC7ED", (0x1B0B73-0xBC7EC)-5 )
+writeBytes("gnazo.exe+BD413",0xE8)
+writeInteger("gnazo.exe+BD414", (0x1B0B73-0xBD413)-5 )
+
+writeBytes("gnazo.exe+BC7E6",0xAE) --173 Right Edge Exit (174)
+writeBytes("gnazo.exe+BD407",0xAF) --174 Right Edge Exit (175)
+writeBytes("gnazo.exe+BDA0A",0) --175 Left/Right Edge Exit (0)
 
 math.randomseed(RandomSeed)
 local mrgr = math.random()
@@ -976,6 +1053,11 @@ timer_onTimer(Timer, function()
       if DestinationRoom == 0 then
         DestinationRoom = 420
         writeInteger("gnazo.exe+33D690",420) --Destination Room ID
+      elseif DestinationRoom == 173 then
+        writeFloat("gnazo.exe+7F7E50",736) --Destination X Coord
+        writeFloat("gnazo.exe+93C8D0",65) --Destination Y Coord
+      elseif DestinationRoom == 174 or DestinationRoom == 175 then
+        writeFloat("gnazo.exe+7F7E50",672) --Destination X Coord
       end
       local IngameMenu = readBytes("gnazo.exe+7F45C8",1) --6 is the stage transition screen
       local CurrentMusic = readBytes("gnazo.exe+855284",1) --0 is menu music
@@ -1134,6 +1216,15 @@ timer_onTimer(Timer, function()
           end
         end
       end
+      if (IngameMenu == 4) or (IngameMenu == 6) then --Stage Transition or Pause Menu
+        for i = 1,220,1 do --Map Fixer
+          if not (MapCoords[i] == nil) then
+            local Offset = (MapDataOffset*(i-1))
+            writeInteger(string.format("gnazo.exe+%X", StageMapXCoordAddress+Offset),MapCoords[i][1])
+            writeInteger(string.format("gnazo.exe+%X", StageMapYCoordAddress+Offset),MapCoords[i][2])
+          end
+        end
+      end
       if not ChangingRooms then
         if not (RoomLoadedIndex == CurrentRoomLoaded) then
           CurrentRoomLoaded = RoomLoadedIndex + 0
@@ -1176,7 +1267,12 @@ timer_onTimer(Timer, function()
               end
             end
           end
-          if CurrentMusic > 0 then
+          if CurrentMusic == 0 then
+            ObjectStatusTable = {}
+            for i = 1,256,1 do
+              ObjectStatusTable[i] = {false,false,0,0,0}
+            end
+          else
             if (DestinationRoom == 10) and (CurrentRoom == 10) then --Keep Life count at 5 when in main room
               if LifeCount < 5 then
                 writeBytes("gnazo.exe+850FDC",5)
@@ -1248,6 +1344,9 @@ timer_onTimer(Timer, function()
                             if not (EntranceTable[DestinationRoom][TargetRoom][TargetEntranceID][4] == nil) then
                               ShortcutUnlock = EntranceTable[DestinationRoom][TargetRoom][TargetEntranceID][4]
                             end
+                            if NewRoomID == 0 then
+                              writeBytes(string.format("gnazo.exe+%X", ObjectDoorHitsAddress+Offset), 1000000000)
+                            end
                             writeInteger(string.format("gnazo.exe+%X", ObjectDoorTargetRoomAddress+Offset),NewRoomID)
                             writeBytes(string.format("gnazo.exe+%X", ObjectDoorTargetEntranceAddress+Offset),NewEntranceID)
                             local NewDoorSprite = DoorSpriteBaseOffset+((EntranceTable[DestinationRoom][TargetRoom][TargetEntranceID][3]-1)*32)
@@ -1258,7 +1357,7 @@ timer_onTimer(Timer, function()
                     end
                     
                     local RemainingHits = readBytes(string.format("gnazo.exe+%X", ObjectDoorHitsAddress+Offset), 1)
-                    if RemainingHits > 0 then
+                    if (RemainingHits > 0) and (RemainingHits <= 10) then
                       writeBytes(string.format("gnazo.exe+%X", ObjectDoorHitsAddress+Offset), 0)
                     end
                     
@@ -1412,28 +1511,30 @@ timer_onTimer(Timer, function()
                                 if (DesiredBulletTypes[i] == nil) then
                                   local ShotTypeChanged = false
                                   if not ((NewID == 235) or (NewID == 347)) then --Bouncing Knives and Laser won't change type
-                                    for a = 1,5,1 do --Try 5 times
-                                      local NewIndex = math.random(1,#ShotTypes)
-                                      if ShotTypes[NewIndex][7] then --Cannot select player-specific shots or bouncing knives
-                                        local Color = math.random(1,ShotTypes[NewIndex][2]) - 1
-                                        if Character == 132 then --Minoriko
-                                          if (not (ShotTypes[NewIndex][4] or ShotTypes[NewIndex][5])) and ShotTypes[NewIndex][6] then
-                                            ShotIndex = NewIndex
-                                            NewID = ShotTypes[NewIndex][1]
-                                            NewType = (NewID*100)+Color
-                                            ShotTypeChanged = true
-                                            break
-                                          end
-                                        else
-                                          if (not ShotTypes[NewIndex][5]) or (((Character == 134) or (EnemyIsFairy[Character] and MovementPatternUsesRefireTime[MovementPattern])) and math.random() < 0.1) then --New Type is Dangerous (Only Doors and Fairies)
-                                            if (ShotTypes[NewIndex][3] and (Weight == 0)) --New Type should fly straight
-                                            or (ShotTypes[NewIndex][4] and (not (Weight == 0))) --New Type should have weight
-                                            or ((not ShotTypes[NewIndex][3]) and (not ShotTypes[NewIndex][4])) then --New Type can be either
+                                    if not (DestinationRoom == 175) then
+                                      for a = 1,5,1 do --Try 5 times
+                                        local NewIndex = math.random(1,#ShotTypes)
+                                        if ShotTypes[NewIndex][7] then --Cannot select player-specific shots or bouncing knives
+                                          local Color = math.random(1,ShotTypes[NewIndex][2]) - 1
+                                          if Character == 132 then --Minoriko
+                                            if (not (ShotTypes[NewIndex][4] or ShotTypes[NewIndex][5])) and ShotTypes[NewIndex][6] then
                                               ShotIndex = NewIndex
                                               NewID = ShotTypes[NewIndex][1]
                                               NewType = (NewID*100)+Color
                                               ShotTypeChanged = true
                                               break
+                                            end
+                                          else
+                                            if (not ShotTypes[NewIndex][5]) or (((Character == 134) or (EnemyIsFairy[Character] and MovementPatternUsesRefireTime[MovementPattern])) and math.random() < 0.1) then --New Type is Dangerous (Only Doors and Fairies)
+                                              if (ShotTypes[NewIndex][3] and (Weight == 0)) --New Type should fly straight
+                                              or (ShotTypes[NewIndex][4] and (not (Weight == 0))) --New Type should have weight
+                                              or ((not ShotTypes[NewIndex][3]) and (not ShotTypes[NewIndex][4])) then --New Type can be either
+                                                ShotIndex = NewIndex
+                                                NewID = ShotTypes[NewIndex][1]
+                                                NewType = (NewID*100)+Color
+                                                ShotTypeChanged = true
+                                                break
+                                              end
                                             end
                                           end
                                         end
@@ -1582,7 +1683,7 @@ timer_onTimer(Timer, function()
                                   end
                                 end
                                 
-                                if not (ShotIndex == nil) then
+                                if not ((ShotIndex == nil) or (DestinationRoom == 175)) then
                                   --print("Enemy "..i.." ("..Character.."): Using Bullet Index "..NewID)
                                   
                                   math.randomseed( math.ceil((RandomSeed+(DestinationRoom*5.55))+(i*5.55)) )
@@ -1783,6 +1884,9 @@ timer_onTimer(Timer, function()
                                     end
                                     
                                     if (NewID == 111) or (NewID == 113) then --Aya Tornado/Youmu Spirit
+                                      if SpeedMod < 0 then
+                                        SpeedMod = 0
+                                      end
                                       if (Lifetime < 60) then
                                         Lifetime = 60 + (math.random(0,6) * 30)
                                       end
@@ -1923,6 +2027,7 @@ timer_onTimer(Timer, function()
                                               else
                                                 SplitCount = 1
                                               end
+                                              
                                               if ShotTypes[SplitShotIndex][3] or ((not ShotTypes[SplitShotIndex][4]) and ((SpreadAngle >= 360) or (math.random() < 0.75))) then
                                                 if SplitType == 0 then
                                                   if (SplitCap > 1) and (math.random() < 0.25) then --Shoot out in all directions
@@ -1953,8 +2058,13 @@ timer_onTimer(Timer, function()
                                                   end
                                                 end
                                                 SplitSpeed = math.min(6, math.max(2,SplitSpeed * (1+((math.random()/2.5)-0.2))) )
-                                                SplitLifetime = math.random(1,2) * 10
-                                                SplitSpeedMod = (math.random()*0.2) - 0.1
+                                                if (SplitID == 111) or (SplitID == 113) then --Aya Tornado/Youmu Spirit
+                                                  SplitSpeedMod = 0
+                                                  SplitLifetime = 60 + (math.random(0,6) * 30)
+                                                else
+                                                  SplitLifetime = math.random(1,2) * 10
+                                                  SplitSpeedMod = (math.random()*0.2) - 0.1
+                                                end
                                               else --Has Weight
                                                 SplitSpeedMod  = 0
                                                 SplitAngle = 25 + (math.random(1,4) * 5)

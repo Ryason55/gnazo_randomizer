@@ -500,8 +500,8 @@ DoorConnections[1160] = {}
 DoorConnections[1160][1] = {1150,1,0,2,false}
 DoorConnections[1160][2] = {861,1,1,2,false}
 DoorConnections[1170] = {}
-DoorConnections[1170][1] = {1240,1,0,2,false}
-DoorConnections[1170][2] = {1310,1,1,3,false}
+DoorConnections[1170][1] = {1240,1,0,2,false,true,false,true} --Only the two doors available
+DoorConnections[1170][2] = {1310,1,1,3,false,false,true}
 DoorConnections[1180] = {}
 DoorConnections[1180][1] = {922,0,0,1,false}
 DoorConnections[1181] = {}
@@ -1395,52 +1395,54 @@ if RandomizeDoors then
                   local TargetRoomID = DoorConnections[RoomID][d][1]
                   local TargetEntranceID = DoorConnections[RoomID][d][2]
                   local TargetStage = math.floor(TargetRoomID * 0.1)
-                  local ThisDoorLeadsToOneWay = DoorConnections[RoomID][d][11]
                   local ThisDoorIsDeadEnd = DoorConnections[RoomID][d][6]
-                  local ThisDoorLeadsToDeadEnd = DoorConnections[RoomID][d][10]
-                  local ThisDoorIsSoftOneWay = DoorConnections[RoomID][d][8]
-                  local NewTarget = math.random(1,#RoomsWithDoors)
-                  local BreakLoop = false
-                  local Error = true
-                  for a = 1,#RoomsWithDoors*4,1 do
-                    local NewRoomID = RoomsWithDoors[NewTarget]
-                    local NewStage = math.floor(NewRoomID * 0.1)
-                    if not ((NewStage == 1) or (NewStage == Stage)) then
-                      if ((BranchLevel < 2) and (not StageIsUnfinished[NewStage])) or ((BranchLevel >= 2) and StageIsUnfinished[NewStage]) or (a > #RoomsWithDoors) then
-                        for n = 1,#DoorConnections[NewRoomID],1 do
-                          if not DoorConnections[NewRoomID][n][5] then
-                            local IsInaccessibleDoor = DoorConnections[NewRoomID][n][7]
-                            if ((not HeadingOutwards) and (not IsInaccessibleDoor))
-                            or (HeadingOutwards and ((StageHasUnreachableEntrances[NewStage] == false) or IsInaccessibleDoor)) then
-                              local NewTargetRoomID = DoorConnections[NewRoomID][n][1]
-                              local NewTargetEntranceID = DoorConnections[NewRoomID][n][2]
-                              local NewTargetStage = math.floor(NewTargetRoomID/10)
-                              local NewDoorIsDeadEnd = DoorConnections[NewRoomID][n][6]
-                              local NewDoorLeadsToDeadEnd = DoorConnections[NewRoomID][n][10]
-                              if (ThisDoorIsDeadEnd and NewDoorLeadsToDeadEnd) or (NewDoorIsDeadEnd and ThisDoorLeadsToDeadEnd)
-                              or ((not ThisDoorIsDeadEnd) and (not NewDoorLeadsToDeadEnd) and (not NewDoorIsDeadEnd) and (not ThisDoorLeadsToDeadEnd))
-                              or (a > #RoomsWithDoors*3) then
-                                local NewDoorIsSoftOneWay = DoorConnections[NewRoomID][n][8]
-                                local NewDoorLeadsToOneWay = DoorConnections[NewRoomID][n][11]
-                                if (HeadingOutwards and (ThisDoorIsSoftOneWay and NewDoorLeadsToOneWay)) or ((not HeadingOutwards) and (NewDoorIsSoftOneWay and ThisDoorLeadsToOneWay))
-                                or ((not ThisDoorIsSoftOneWay) and (not NewDoorLeadsToOneWay) and (not NewDoorIsSoftOneWay) and (not ThisDoorLeadsToOneWay))
-                                or (a > #RoomsWithDoors*2) then
-                                  if not DoorConnections[NewRoomID][n][12] then
-                                    DoorConnections[RoomID][d][12] = true
-                                    DoorsUsedInStage[Stage] = DoorsUsedInStage[Stage] + 1
-                                    DoorConnections[NewRoomID][n][12] = true
-                                    DoorsUsedInStage[NewStage] = DoorsUsedInStage[NewStage] + 1
-                                    if (StageHasUnreachableEntrances[NewStage] == true) and HeadingOutwards then
-                                      StageHasUnreachableEntrances[NewStage] = false
+                  if not ThisDoorIsDeadEnd then --Don't branch from dead ends
+                    local ThisDoorLeadsToDeadEnd = DoorConnections[RoomID][d][10]
+                    local ThisDoorIsSoftOneWay = DoorConnections[RoomID][d][8]
+                    local ThisDoorLeadsToOneWay = DoorConnections[RoomID][d][11]
+                    local NewTarget = math.random(1,#RoomsWithDoors)
+                    local BreakLoop = false
+                    local Error = true
+                    for a = 1,#RoomsWithDoors*4,1 do
+                      local NewRoomID = RoomsWithDoors[NewTarget]
+                      local NewStage = math.floor(NewRoomID * 0.1)
+                      if not ((NewStage == 1) or (NewStage == Stage)) then
+                        if ((BranchLevel < 2) and (not StageIsUnfinished[NewStage])) or ((BranchLevel >= 2) and StageIsUnfinished[NewStage]) or (a > #RoomsWithDoors) then
+                          for n = 1,#DoorConnections[NewRoomID],1 do
+                            if not DoorConnections[NewRoomID][n][5] then
+                              local IsInaccessibleDoor = DoorConnections[NewRoomID][n][7]
+                              if ((not HeadingOutwards) and (not IsInaccessibleDoor))
+                              or (HeadingOutwards and ((StageHasUnreachableEntrances[NewStage] == false) or IsInaccessibleDoor)) then
+                                local NewTargetRoomID = DoorConnections[NewRoomID][n][1]
+                                local NewTargetEntranceID = DoorConnections[NewRoomID][n][2]
+                                local NewTargetStage = math.floor(NewTargetRoomID/10)
+                                local NewDoorIsDeadEnd = DoorConnections[NewRoomID][n][6]
+                                local NewDoorLeadsToDeadEnd = DoorConnections[NewRoomID][n][10]
+                                if (ThisDoorIsDeadEnd and NewDoorLeadsToDeadEnd) or (NewDoorIsDeadEnd and ThisDoorLeadsToDeadEnd)
+                                or ((not ThisDoorIsDeadEnd) and (not NewDoorLeadsToDeadEnd) and (not NewDoorIsDeadEnd) and (not ThisDoorLeadsToDeadEnd))
+                                or (a > #RoomsWithDoors*3) then
+                                  local NewDoorIsSoftOneWay = DoorConnections[NewRoomID][n][8]
+                                  local NewDoorLeadsToOneWay = DoorConnections[NewRoomID][n][11]
+                                  if (HeadingOutwards and (ThisDoorIsSoftOneWay and NewDoorLeadsToOneWay)) or ((not HeadingOutwards) and (NewDoorIsSoftOneWay and ThisDoorLeadsToOneWay))
+                                  or ((not ThisDoorIsSoftOneWay) and (not NewDoorLeadsToOneWay) and (not NewDoorIsSoftOneWay) and (not ThisDoorLeadsToOneWay))
+                                  or (a > #RoomsWithDoors*2) then
+                                    if not DoorConnections[NewRoomID][n][12] then
+                                      DoorConnections[RoomID][d][12] = true
+                                      DoorsUsedInStage[Stage] = DoorsUsedInStage[Stage] + 1
+                                      DoorConnections[NewRoomID][n][12] = true
+                                      DoorsUsedInStage[NewStage] = DoorsUsedInStage[NewStage] + 1
+                                      if (StageHasUnreachableEntrances[NewStage] == true) and HeadingOutwards then
+                                        StageHasUnreachableEntrances[NewStage] = false
+                                      end
+                                      WriteConnection(RoomID,d,NewRoomID,n)
+                                      if not NewDoorIsDeadEnd then
+                                        BranchFromOneWay(NewStage,HeadingOutwards,BranchLevel+1)
+                                      end
+                                      
+                                      Error = false
+                                      BreakLoop = true
+                                      break
                                     end
-                                    WriteConnection(RoomID,d,NewRoomID,n)
-                                    if not NewDoorIsDeadEnd then
-                                      BranchFromOneWay(NewStage,HeadingOutwards,BranchLevel+1)
-                                    end
-                                    
-                                    Error = false
-                                    BreakLoop = true
-                                    break
                                   end
                                 end
                               end
@@ -1448,36 +1450,15 @@ if RandomizeDoors then
                           end
                         end
                       end
-                    end
-                    if BreakLoop then
-                      break
-                    end
-                    NewTarget = NewTarget + 1
-                    if NewTarget > #RoomsWithDoors then
-                      NewTarget = 1
-                    end
-                  end
-                  --[[if Error then
-                    print(" ERROR: Stage "..Stage..", Room "..i..", Door Index " .. d .. " - Door could not branch!")
-                    local Color = 3
-                    if not (EntranceTable[420] == nil) then
-                      if not (EntranceTable[420][293] == nil) then
-                        if not (EntranceTable[420][293][2] == nil) then
-                          Color = EntranceTable[420][293][2][3]
-                        end
+                      if BreakLoop then
+                        break
+                      end
+                      NewTarget = NewTarget + 1
+                      if NewTarget > #RoomsWithDoors then
+                        NewTarget = 1
                       end
                     end
-                    if EntranceTable[RoomID] == nil then
-                      EntranceTable[RoomID] = {}
-                      file:write("EntranceTable["..RoomID.."] = {}\n")
-                    end
-                    if EntranceTable[RoomID][TargetRoomID] == nil then
-                      EntranceTable[RoomID][TargetRoomID] = {}
-                      file:write("EntranceTable["..RoomID.."]["..TargetRoomID.."] = {}\n")
-                    end
-                    EntranceTable[RoomID][TargetRoomID][TargetEntranceID] = {420,0,Color,nil}
-                    file:write("EntranceTable["..RoomID.."]["..TargetRoomID.."]["..TargetEntranceID.."] = {420,0,"..Color..",nil}\n")
-                  end]]
+                  end
                 end
               end
             end
@@ -1662,24 +1643,6 @@ if RandomizeDoors then
                   end
                   if Error then
                     print(" ERROR: Stage "..Stage..", Room "..i..", Door Index "..d.." - Door could not branch!")
-                    --[[local Color = 3
-                    if not (EntranceTable[420] == nil) then
-                      if not (EntranceTable[420][293] == nil) then
-                        if not (EntranceTable[420][293][2] == nil) then
-                          Color = EntranceTable[420][293][2][3]
-                        end
-                      end
-                    end
-                    if EntranceTable[RoomID] == nil then
-                      EntranceTable[RoomID] = {}
-                      file:write("EntranceTable["..RoomID.."] = {}\n")
-                    end
-                    if EntranceTable[RoomID][TargetRoomID] == nil then
-                      EntranceTable[RoomID][TargetRoomID] = {}
-                      file:write("EntranceTable["..RoomID.."]["..TargetRoomID.."] = {}\n")
-                    end
-                    EntranceTable[RoomID][TargetRoomID][TargetEntranceID] = {420,0,Color,nil}
-                    file:write("EntranceTable["..RoomID.."]["..TargetRoomID.."]["..TargetEntranceID.."] = {420,0,"..Color..",nil}\n")]]
                   end
                 end
               --end
@@ -1783,8 +1746,8 @@ if RandomizeDoors then
                   EntranceTable[RoomID][TargetRoomID] = {}
                   file:write("EntranceTable["..RoomID.."]["..TargetRoomID.."] = {}\n")
                 end
-                EntranceTable[RoomID][TargetRoomID][TargetEntranceID] = {420,0,Color,nil}
-                file:write("EntranceTable["..RoomID.."]["..TargetRoomID.."]["..TargetEntranceID.."] = {420,0,"..Color..",nil}\n")
+                EntranceTable[RoomID][TargetRoomID][TargetEntranceID] = {0,0,Color,nil}
+                file:write("EntranceTable["..RoomID.."]["..TargetRoomID.."]["..TargetEntranceID.."] = {0,0,"..Color..",nil}\n")
               end
             end
             CurrentDoor = CurrentDoor + 1
@@ -1814,11 +1777,172 @@ if RandomizeDoors then
     end
     file:write("{"..AutoUnlockShortcuts[i][1]..","..AutoUnlockShortcuts[i][2].."}"..Comma)
   end
+  
+  print("Reconfiguring Map...")
+  file:write("}\n\nlocal MapCoords = {}")
+  local StageAngles = {}
+  StageAngles[0] = {}
+  local MapCoords = {}
+  local PlaceMapPoint
+  PlaceMapPoint =
+    function(Stage,ParentStage,ParentX,ParentY,ParentAngle,DistanceFromStart)
+      StageAngles[Stage] = {}
+      --local AngleText = "nil"
+      --if not (ParentAngle == nil) then
+      --  AngleText = ParentAngle
+      --end
+      --print(" STAGE "..Stage..": originating from "..ParentX..","..ParentY.." with Angle "..AngleText)
+      local X
+      local Y
+      local Angle
+      if Stage == 1 then
+        X = ParentX + 0
+        Y = ParentY + 0
+      else
+        local Retries = 0
+        while true do
+          if ParentAngle == nil then
+            Angle = math.floor(((math.random()*360)-180)/10)*10
+          else
+            Angle = math.floor((ParentAngle + ((math.random()-0.5)*(math.min(200,(20*DistanceFromStart))+(5*Retries))))/10)*10
+            if Angle > 180 then
+              Angle = Angle - 360
+            elseif Angle < 180 then
+              Angle = Angle + 360
+            end
+          end
+          
+          local AngleValid = true
+          for i = 1,#StageAngles[ParentStage],1 do
+            if math.abs(Angle - StageAngles[ParentStage][i]) < 20 then
+              AngleValid = false
+              break
+            end
+          end
+          
+          if AngleValid then
+            local Distance = (50 * (math.ceil(math.random()*3))) + 50
+            
+            X = ParentX + math.floor(Distance * math.cos(math.rad(Angle)))
+            Y = ParentY + math.floor(Distance * math.sin(math.rad(Angle)))
+            --print("  Selected Angle of "..Angle.." degrees, with distance "..Distance..", Located at Coordinates "..X..","..Y)
+            
+            if (X >= -617) and (X <= 1255) and (Y >= -617) and (Y <= 1084) then
+              local Collides = false
+              for i = 1,220,1 do
+                if not (i == Stage) then
+                  if not (MapCoords[i] == nil) then
+                    if (math.abs(MapCoords[i][1] - X) < 50) and (math.abs(MapCoords[i][2] - Y) < 50) then
+                      --print("  Placement collides with Stage "..i..", at Coordinates "..MapCoords[i][1]..","..MapCoords[i][2])
+                      Collides = true
+                      break
+                    end
+                  end
+                end
+              end
+              if not Collides then
+                break
+              end
+            else
+              --print("  Placement is Out of Bounds; Retrying")
+            end
+          end
+          if Retries >= 500 then
+            print(" ERROR: Encountered problem placing Stage "..Stage.." on map! Placement may be malformed!")
+            break
+          end
+          Retries = Retries + 1
+        end
+      end
+      
+      table.insert(StageAngles[Stage],Angle)
+      MapCoords[Stage] = {X,Y}
+      file:write("\nMapCoords["..Stage.."] = {"..X..","..Y.."}")
+      local ConnectedStages = {}
+      for room = (Stage*10)+5,Stage*10,-1 do
+      
+        if not (DoorConnections[room] == nil) then
+          for i = 1,#DoorConnections[room],1 do
+            local destroom = DoorConnections[room][i][1]
+            local destent = DoorConnections[room][i][2]
+            if not (EntranceTable[room] == nil) then
+              if not (EntranceTable[room][destroom] == nil) then
+                if not (EntranceTable[room][destroom][destent] == nil) then
+                  local NextStage = math.floor(EntranceTable[room][destroom][destent][1]/10)
+                  if MapCoords[NextStage] == nil then
+                    if (NextStage >= 1) and (NextStage <= 220) then
+                      table.insert(ConnectedStages,{NextStage,Stage,X,Y,Angle})
+                    end
+                  end
+                end
+              end
+            end
+          end
+        end
+        
+        if not (OneWayDoors[room] == nil) then
+          for i = 1,#OneWayDoors[room],1 do
+            local destroom = OneWayDoors[room][i][1]
+            local destent = OneWayDoors[room][i][2]
+            if not (EntranceTable[room] == nil) then
+              if not (EntranceTable[room][destroom] == nil) then
+                if not (EntranceTable[room][destroom][destent] == nil) then
+                  local NextStage = math.floor(EntranceTable[room][destroom][destent][1]/10)
+                  if MapCoords[NextStage] == nil then
+                    if (NextStage >= 1) and (NextStage <= 220) then
+                      table.insert(ConnectedStages,{NextStage,Stage,X,Y,Angle})
+                    end
+                  end
+                end
+              end
+            end
+          end
+        end
+        
+      end
+      return ConnectedStages
+    end
+    
+  local StagesToPlace = {{1,0,263,231,nil}}
+  local DistanceFromStart = 0
+  while true do
+    local NewStagesToPlace = {}
+    for i = 1,#StagesToPlace,1 do
+      local Stage = StagesToPlace[i][1]
+      if MapCoords[Stage] == nil then
+        local ParentStage = StagesToPlace[i][2]
+        local ParentX = StagesToPlace[i][3]
+        local ParentY = StagesToPlace[i][4]
+        local Angle = StagesToPlace[i][5]
+        ConnectedStages = PlaceMapPoint(Stage,ParentStage,ParentX,ParentY,Angle,DistanceFromStart)
+        for s = 1,#ConnectedStages,1 do
+          table.insert(NewStagesToPlace,ConnectedStages[s])
+        end
+      end
+    end
+    if #NewStagesToPlace == 0 then
+      break
+    end
+    StagesToPlace = NewStagesToPlace
+    DistanceFromStart = DistanceFromStart + 1
+  end
+    
+  local XAdd = 0
+  for i = 1,220,1 do
+    if MapCoords[i] == nil then
+      local X = -617 + XAdd
+      local Y = -617
+      MapCoords[i] = {X,Y}
+      file:write("\nMapCoords["..i.."] = {"..X..","..Y.."}")
+      XAdd = XAdd + 50
+    end
+  end
+  
 else
-  file:write("\nlocal AutoUnlocks = {")
+  file:write("\nlocal AutoUnlocks = {}\nlocal MapCoords = {}")
 end
 
-file:write("}\n\nreturn SeedToUse,RandomizeDoors,RandomizeAttacks,RandomizeEnemyBullets,RandomizeBackgrounds,EntranceTable,AutoUnlocks")
+file:write("\n\nreturn SeedToUse,RandomizeDoors,RandomizeAttacks,RandomizeEnemyBullets,RandomizeBackgrounds,EntranceTable,AutoUnlocks,MapCoords")
 file:close()
 
 --print("Finished Randomization with ".. StagesInMap+1 .."/220 Stages!")
