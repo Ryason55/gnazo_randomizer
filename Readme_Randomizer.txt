@@ -1,4 +1,4 @@
-========== Mystery of Gensokyo Randomizer V3.0 ==========
+﻿========== Mystery of Gensokyo Randomizer V3.5 ==========
 
 Hello. Here's a randomizer for The Mystery of Gensokyo (ゲンソウキョウの謎). Currently only works with Version 1.01e of the game.
 
@@ -10,7 +10,7 @@ https://twitter.com/ryason55
 
 
 -------Installation-------
-Extract and place the "randomizer" folder in the same folder as your game's executable, putting it alongside file and manual. It uh, doesn't actually *need* to go there, but it seems like a good place for it. Just note that all of the files contained (and the BingoThumbnails folder) need to be in the same folder in order to work. And maybe put the Readme in there too, just in case you suddenly forget everything.
+Extract and place the "randomizer" and "ex" folders in the same folder as your game's executable, putting them alongside file and manual. The randomizer folder can actually be placed wherever, but the ex folder needs to be in that exact place since I make the game read from it for a couple things.
 
 Also, your antivirus (read: Norton) will probably think "GnazoRandomizer.exe" is a virus. This is because it's effectively a stripped down version of Cheat Engine, which is able to access and modify computer memory. Cheat Engine itself would also get picked up... except it has a large userbase behind it, all of which flag it as okay to use.
 
@@ -59,6 +59,12 @@ This function is sorta in beta at the moment. Here are some problems I'd like to
 
 
 -------Changelog-------
+V3.5
+ -The ingame map is now rearranged depending on the seed, and should be (slightly) more legible, with stages actually branching out from 1
+ -The door randomization should now no longer be able to fail (for real this time)
+ -Added WIP implementation for having additional enemy sprites (currently only fairies) injected into the game and randomly swapped with existing sprites. Main problem is that it only works if the randomizer starts running before the intro text scroll starts.
+ -Misc changes that I made 2 years ago and completely forgot about by now
+
 V3.02
  -Improved the fix for the door randomization (It was randomly breaking shortcuts)
  -Bosses in Solo Character mode no longer respawn (This was necessary for Kanako)
