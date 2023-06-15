@@ -41,6 +41,14 @@ BingoConditions[38] = {"Stage55","Collect the treasure in Stage 55 and finish th
 BingoConditions[39] = {"Stage59","Collect the treasure in Stage 59 and finish the stage","gnazo.exe+932330",1,"Byte"}
 BingoConditions[40] = {"Stage84","Collect the treasure in Stage 84 and finish the stage","gnazo.exe+933B68",1,"Byte"}
 
+--These need to be indexed, but won't be included in normal randomization
+BingoConditions[41] = {"Kanako","Beat the game and Recruit Kanako","gnazo.exe+8547F4",1,"ByteGE"}
+BingoConditions[42] = {"Reimu","Start the game","gnazo.exe+854400",1,"ByteGE"}
+BingoConditions[43] = {"Marisa","But where do you get Marisa NotLikeThis","gnazo.exe+85442C",1,"ByteGE"}
+BingoConditions[44] = {"Yukari","Recruit all characters, including Yukari","gnazo.exe+85463C",1,"ByteGE"}
+
+local MaxRandomIndex = 40
+
 local PossibleLines = {} --Unused ATM
 PossibleLines[1] = {1,1},{1,2},{1,3},{1,4},{1,5}
 PossibleLines[2] = {2,1},{2,2},{2,3},{2,4},{2,5}
@@ -57,38 +65,60 @@ PossibleLines[12] = {1,5},{2,4},{3,3},{4,2},{5,1}
 
 local ConditionInUse = {}
 local CurrentBoard = {}
-
-math.randomseed(BingoSeed)
-for row = 1,5,1 do
-  CurrentBoard[row] = {}
-  for column = 1,5,1 do
-    if (row == 3) and (column == 3) then
-      CurrentBoard[row][column] = {false,{"Kanako","Beat the game and Recruit Kanako","gnazo.exe+8547F4",1,"ByteGE"}}
+if BoardToLoad then
+  local row = 1
+  local column = 1
+  for i = 2,51,2 do
+    local cond = tonumber(BoardToLoad[i])
+    if cond and cond >= 1 and cond <= #BingoConditions and (not ConditionInUse[cond]) then
+      if not CurrentBoard[row] then
+        CurrentBoard[row] = {}
+      end
+      CurrentBoard[row][column] = {BoardToLoad[i+1],BingoConditions[cond],cond}
+      ConditionInUse[cond] = true
     else
-      if OnlyCharactersMode then
-        while true do
-          local Index = math.random(1,24)
-          if not ConditionInUse[Index] then
-            ConditionInUse[Index] = true
-            if Index == 22 then
-              CurrentBoard[row][column] = {false,{"Reimu","Start the game","gnazo.exe+854400",1,"ByteGE"}}
-            elseif Index == 23 then
-              CurrentBoard[row][column] = {false,{"Marisa","But where do you get Marisa NotLikeThis","gnazo.exe+85442C",1,"ByteGE"}}
-            elseif Index == 24 then
-              CurrentBoard[row][column] = {false,{"Yukari","Recruit all characters, including Yukari","gnazo.exe+85463C",1,"ByteGE"}}
-            else
-              CurrentBoard[row][column] = {false,BingoConditions[Index]}
-            end
-            break
-          end
-        end
+      print("Could not load last played bingo session; Saved script is malformed")
+      return nil
+    end
+    column = column + 1
+    if column > 5 then
+      column = 1
+      row = row + 1
+    end
+  end
+else
+  math.randomseed(BingoSeed)
+  for row = 1,5,1 do
+    CurrentBoard[row] = {}
+    for column = 1,5,1 do
+      if (row == 3) and (column == 3) then
+        CurrentBoard[row][column] = {false,BingoConditions[41],41}
       else
-        while true do
-          local Index = math.random(1,#BingoConditions)
-          if not ConditionInUse[Index] then
-            ConditionInUse[Index] = true
-            CurrentBoard[row][column] = {false,BingoConditions[Index]}
-            break
+        if OnlyCharactersMode then
+          while true do
+            local Index = math.random(1,24)
+            if not ConditionInUse[Index] then
+              ConditionInUse[Index] = true
+              if Index == 22 then
+                CurrentBoard[row][column] = {false,BingoConditions[42],42} --Reimu
+              elseif Index == 23 then
+                CurrentBoard[row][column] = {false,BingoConditions[43],43} --Marisa
+              elseif Index == 24 then
+                CurrentBoard[row][column] = {false,BingoConditions[44],44} --Yukari
+              else
+                CurrentBoard[row][column] = {false,BingoConditions[Index],Index}
+              end
+              break
+            end
+          end
+        else
+          while true do
+            local Index = math.random(1,MaxRandomIndex)
+            if not ConditionInUse[Index] then
+              ConditionInUse[Index] = true
+              CurrentBoard[row][column] = {false,BingoConditions[Index],Index}
+              break
+            end
           end
         end
       end
